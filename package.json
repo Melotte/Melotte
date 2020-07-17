@@ -6,8 +6,10 @@
   "author": "Anonymous",
   "license": "MIT",
   "scripts": {
-    "build": "rimraf ./build && tsc",
-    "start": "node build/index.js"
+    "build": "tsc --incremental",
+    "watch": "tsc --watch",
+    "start": "node build/index.js",
+    "build:prod": "rimraf ./build && tsc"
   },
   "dependencies": {
     "ipfs": "^0.48.0",
