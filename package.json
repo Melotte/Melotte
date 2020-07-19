@@ -12,7 +12,6 @@
     "build:prod": "rimraf ./build && tsc"
   },
   "dependencies": {
-    "ipfs": "^0.48.0",
     "ipfs-http-client": "^45.0.0",
     "ipfsd-ctl": "^5.0.0"
   },
