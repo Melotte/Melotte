@@ -11,10 +11,7 @@
     "start": "node build/index.js",
     "build:prod": "rimraf ./build && tsc"
   },
-  "dependencies": {
-    "ipfs-http-client": "^45.0.0",
-    "ipfsd-ctl": "^5.0.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@types/events": "^3.0.0",
     "@types/node": "^14.0.23",
