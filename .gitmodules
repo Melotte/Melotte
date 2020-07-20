@@ -1,3 +1,6 @@
 [submodule "core/vendor/typestub-ipfs"]
 	path = core/vendor/typestub-ipfs
 	url = https://github.com/beenotung/typestub-ipfs.git
+[submodule "node"]
+	path = node
+	url = https://github.com/nodejs/node.git
