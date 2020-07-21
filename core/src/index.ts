@@ -1,17 +1,14 @@
-import Libp2p from "libp2p";
-import Libp2pWebSockets from "libp2p-websockets";
-import {NOISE} from "libp2p-noise";
+import {createNode} from "./node";
 
 (async () => {
-	console.log("booting");
-	const node = await Libp2p.create({
-		addresses: {
-			listen: ["/ip4/127.0.0.1/tcp/8000/ws"]
-		},
-		modules: {
-			transport: [Libp2pWebSockets],
-			connEncryption: [NOISE]
-		}
+	const node = await createNode();
+
+	node.on("peer:discovery", peer => {
+		console.log("Discovered %s", peer.id.toB58String()) // Log discovered peer
+	});
+
+	node.on("peer:connect", peer => {
+		console.log("Connected to %s", peer.id.toB58String()) // Log connected peer
 	});
 
 	await node.start();
@@ -20,6 +17,6 @@ import {NOISE} from "libp2p-noise";
 	console.log("libp2p is listening on the following addresses:", listenAddrs);
 	const advertiseAddrs = node.multiaddrs;
 	console.log("libp2p is advertising the following addresses:", advertiseAddrs);
-	await node.stop();
-	console.log("libp2p has stopped");
+	//await node.stop();
+	//console.log("libp2p has stopped");
 })();
