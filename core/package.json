@@ -6,11 +6,18 @@
   "author": "Anonymous",
   "license": "MIT",
   "scripts": {
-    "build": "webpack --mode development",
-    "watch": "webpack --mode development --watch",
-    "clean": "rimraf ./build",
-    "start": "node build/bundle.js",
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "inspect": "node --inspect build/index.js",
+    "inspect-brk": "node --inspect-brk build/index.js",
+    "start": "node build/index.js",
     "build:prod": "webpack --mode production",
+    "watch:prod": "webpack --mode production --watch",
+    "inspect:prod": "node --inspect build/bundle.js",
+    "inspect-brk:prod": "node --inspect-brk build/bundle.js",
+    "start:prod": "node build/bundle.js",
+    "jsdoc-tsd": "jsdoc -t node_modules/libp2p*/jsdoc-tsd -r .",
+    "clean": "rimraf ./build",
     "postinstall": "patch-package"
   },
   "dependencies": {
