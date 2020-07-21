@@ -5,7 +5,6 @@
 		"lib": ["es6", "dom"],
 
 		"allowJs": true,
-		"checkJs": true,
 
 		"outDir": "build",
 
