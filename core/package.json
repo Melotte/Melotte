@@ -14,9 +14,11 @@
     "postinstall": "patch-package"
   },
   "dependencies": {
+    "bufferutil": "^4.0.1",
     "libp2p": "^0.28.8",
     "libp2p-noise": "^1.1.2",
-    "libp2p-websockets": "^0.13.6"
+    "libp2p-websockets": "^0.13.6",
+    "utf-8-validate": "^5.0.2"
   },
   "devDependencies": {
     "@types/events": "^3.0.0",
