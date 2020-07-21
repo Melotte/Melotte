@@ -4,11 +4,11 @@ import {createNode} from "./node";
 	const node = await createNode();
 
 	node.on("peer:discovery", peer => {
-		console.log("Discovered %s", peer.id.toB58String()) // Log discovered peer
+		console.log("Discovered %s", peer); // Log discovered peer
 	});
 
 	node.on("peer:connect", peer => {
-		console.log("Connected to %s", peer.id.toB58String()) // Log connected peer
+		console.log("Connected to %s", peer); // Log connected peer
 	});
 
 	await node.start();
