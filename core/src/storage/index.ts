@@ -53,11 +53,11 @@ export default class Storage {
 		const transport = await getTransport(connection, "/planet/storage/1.0.0");
 		const encodedData = await transport.query(cid.buffer);
 		if(encodedData.length === 0) {
-			throw new Error("remote: Unknown object");
+			throw new NotFoundError("remote: Unknown object");
 		}
 		const data = await this.encoder.decode(encodedData);
 		if(!await this.encoder.verify(data, cid)) {
-			throw new Error("Invalid object hash");
+			throw new NotFoundError("Invalid object hash");
 		}
 		return data;
 	}
@@ -89,7 +89,7 @@ export default class Storage {
 					try {
 						return await this.peekFromConnection(connection, cid);
 					} catch(e) {
-						if(e.code) {
+						if(e.code || e instanceof NotFoundError) {
 							log(`1.${i + 1}. Failed: ${e}`);
 							return null;
 						} else {
@@ -118,7 +118,7 @@ export default class Storage {
 						const connection = await this.peer.dial(provider.id);
 						return await this.peekFromConnection(connection, cid);
 					} catch(e) {
-						if(e.code) {
+						if(e.code || e instanceof NotFoundError) {
 							log(`2.${i + 1}. Failed: ${e}`);
 							return null;
 						} else {
@@ -166,9 +166,22 @@ export default class Storage {
 	}
 
 
-	async add(data: Buffer, cid: CID): Promise<void> {
+	async provide(cid: CID): Promise<void> {
+		try {
+			const timeStart = Date.now();
+			await this.peer.contentRouting.provide(cid);
+			this.debug(`Finished providing ${cid} in ${(Date.now() - timeStart) / 1000}s`);
+		} catch(e) {
+			this.debug(`Error while providing ${cid}: ${e.message}`);
+		}
+	}
+
+
+	async add(data: Buffer): Promise<CID> {
+		const cid = await this.encoder.getCid(data);
 		await this.rawStorage.add(data, cid);
-		await this.peer.contentRouting.provide(cid);
+		this.provide(cid);
+		return cid;
 	}
 
 
@@ -182,7 +195,8 @@ export default class Storage {
 		}
 
 		const data = await this.peek(cid);
-		await this.add(data, cid);
+		await this.rawStorage.add(data, cid);
+		this.provide(cid);
 		return data;
 	}
 }

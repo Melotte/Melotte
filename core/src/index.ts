@@ -29,8 +29,7 @@ function sleep(ms) {
 	const storage1 = new Storage(peer1, new RawMemoryStorage(), "storage1");
 	const storage2 = new Storage(peer2, new RawMemoryStorage(), "storage2");
 
-	const cid = new CID("zb2rhYSxw4ZjuzgCnWSt19Q94ERaeFhu9uSqRgjSdx9bsgM6f");
-	await storage1.add(Buffer.from([1, 2, 3]), cid);
+	const cid = await storage1.add(Buffer.from([1, 2, 3]));
 	await sleep(5000);
 	console.log(await storage2.get(cid));
 	console.log(await storage2.get(cid));

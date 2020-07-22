@@ -1,5 +1,6 @@
 import {deflate, inflate} from "./zlib";
 import CID from "cids";
+import multihashing from "multihashing-async";
 
 
 export default class Encoder {
@@ -8,12 +9,18 @@ export default class Encoder {
 	}
 
 
-	async decode(data: Buffer): Promise<Buffer> {
-		return await inflate(data);
+	async decode(encodedData: Buffer): Promise<Buffer> {
+		return await inflate(encodedData);
+	}
+
+
+	async getCid(data: Buffer): Promise<CID> {
+		const hash = await multihashing(data, "sha2-256");
+		return new CID(1, "raw", hash, "base58btc");
 	}
 
 
 	async verify(data: Buffer, cid: CID): Promise<boolean> {
-		return true;
+		return cid.equals(await this.getCid(data));
 	}
 }
