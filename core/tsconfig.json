@@ -10,6 +10,7 @@
 
     "strict": false,
     "noImplicitAny": false,
+    "strictNullChecks": true,
 
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,

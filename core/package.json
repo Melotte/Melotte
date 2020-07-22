@@ -21,6 +21,7 @@
     "postinstall": "patch-package"
   },
   "dependencies": {
+    "async-mutex": "^0.2.4",
     "bufferutil": "^4.0.1",
     "libp2p": "^0.28.8",
     "libp2p-bootstrap": "^0.11.0",
@@ -32,14 +33,18 @@
     "libp2p-spdy": "^0.13.3",
     "libp2p-tcp": "^0.14.6",
     "libp2p-websockets": "^0.13.6",
+    "peer-id": "^0.13.13",
     "utf-8-validate": "^5.0.2"
   },
   "devDependencies": {
+    "@types/bl": "^2.1.0",
+    "@types/debug": "^4.1.5",
     "@types/events": "^3.0.0",
     "@types/node": "^14.0.23",
     "patch-package": "^6.2.2",
     "rimraf": "^3.0.2",
     "ts-loader": "^8.0.1",
+    "ts-proto": "^1.26.0",
     "typescript": "^3.9.7",
     "webpack": "^4.43.0",
     "webpack-cli": "^3.3.12"
