@@ -1,8 +1,48 @@
 diff --git a/node_modules/ts-proto/build/main.js b/node_modules/ts-proto/build/main.js
-index 2e74aae..bd6b0e8 100644
+index 2e74aae..919dd55 100644
 --- a/node_modules/ts-proto/build/main.js
 +++ b/node_modules/ts-proto/build/main.js
-@@ -583,7 +583,7 @@ function generateFromJson(typeMap, fullName, messageDesc, options) {
+@@ -124,6 +124,9 @@ function generateFile(typeMap, fileDesc, parameter) {
+     if (initialOutput.includes('DeepPartial')) {
+         file = addDeepPartialType(file, options);
+     }
++    if (initialOutput.includes('JSONEncoded')) {
++        file = addJSONEncodedType(file, options);
++    }
+     return file;
+ }
+ exports.generateFile = generateFile;
+@@ -193,6 +196,20 @@ type DeepPartial<T> = T extends Builtin
+   ? { [K in keyof T]?: DeepPartial<T[K]> }
+   : Partial<T>;`));
+ }
++function addJSONEncodedType(file, options) {
++    let oneofCase = '';
++    if (options.oneof === OneofOption.UNIONS) {
++        oneofCase = `
++  T extends { $case: string } ? { [K in keyof Omit<T, '$case'>]: JSONEncoded<T[K]> } & { $case: T['$case'] } :`;
++    }
++    return file.addCode(ts_poet_1.CodeBlock.empty().add(`type JSONEncoded<T> =
++  T extends Uint8Array ? string :
++  T extends Date ? string :
++  T extends Array<infer U> ? Array<JSONEncoded<U>> :
++  T extends ReadonlyArray<infer U> ? ReadonlyArray<JSONEncoded<U>> :${oneofCase}
++  T extends {} ? { [K in keyof T]: JSONEncoded<T[K]> } :
++  T;`));
++}
+ function addTimestampMethods(file, options) {
+     const timestampType = 'Timestamp@./google/protobuf/timestamp';
+     let secondsCodeLine = 'const seconds = date.getTime() / 1_000';
+@@ -570,7 +587,7 @@ function generateEncode(typeMap, fullName, messageDesc, options) {
+ function generateFromJson(typeMap, fullName, messageDesc, options) {
+     // create the basic function declaration
+     let func = ts_poet_1.FunctionSpec.create('fromJSON')
+-        .addParameter(messageDesc.field.length > 0 ? 'object' : '_', 'any')
++        .addParameter(messageDesc.field.length > 0 ? 'object' : '_', `JSONEncoded<${fullName}>`)
+         .returns(fullName);
+     // create the message
+     func = func.addStatement('const message = { ...base%L } as %L', fullName, fullName);
+@@ -583,7 +600,7 @@ function generateFromJson(typeMap, fullName, messageDesc, options) {
      messageDesc.field.forEach((field) => {
          const fieldName = maybeSnakeToCamel(field.name, options);
          // get a generic 'reader.doSomething' bit that is specific to the basic type
@@ -11,7 +51,7 @@ index 2e74aae..bd6b0e8 100644
              if (types_1.isEnum(field)) {
                  return ts_poet_1.CodeBlock.of('%T.fromJSON(%L)', types_1.basicTypeName(typeMap, field, options), from);
              }
-@@ -616,19 +616,7 @@ function generateFromJson(typeMap, fullName, messageDesc, options) {
+@@ -616,19 +633,7 @@ function generateFromJson(typeMap, fullName, messageDesc, options) {
                  return ts_poet_1.CodeBlock.of('%L(%L)', capitalize(types_1.valueTypeName(field).toString()), from);
              }
              else if (types_1.isMessage(field)) {
@@ -32,7 +72,7 @@ index 2e74aae..bd6b0e8 100644
              }
              else {
                  throw new Error(`Unhandled field ${field}`);
-@@ -638,24 +626,25 @@ function generateFromJson(typeMap, fullName, messageDesc, options) {
+@@ -638,24 +643,25 @@ function generateFromJson(typeMap, fullName, messageDesc, options) {
          func = func.beginControlFlow('if (object.%L !== undefined && object.%L !== null)', fieldName, fieldName);
          if (types_1.isRepeated(field)) {
              if (types_1.isMapType(typeMap, messageDesc, field, options)) {
@@ -62,7 +102,7 @@ index 2e74aae..bd6b0e8 100644
          }
          // set the default value (TODO Support bytes)
          if (!types_1.isRepeated(field) &&
-@@ -732,24 +721,12 @@ function generateFromPartial(typeMap, fullName, messageDesc, options) {
+@@ -732,24 +738,12 @@ function generateFromPartial(typeMap, fullName, messageDesc, options) {
      // add a check for each incoming field
      messageDesc.field.forEach((field) => {
          const fieldName = maybeSnakeToCamel(field.name, options);
@@ -89,7 +129,7 @@ index 2e74aae..bd6b0e8 100644
              }
              else {
                  throw new Error(`Unhandled field ${field}`);
-@@ -759,17 +736,18 @@ function generateFromPartial(typeMap, fullName, messageDesc, options) {
+@@ -759,17 +753,18 @@ function generateFromPartial(typeMap, fullName, messageDesc, options) {
          if (types_1.isRepeated(field)) {
              func = func.beginControlFlow('if (object.%L !== undefined && object.%L !== null)', fieldName, fieldName);
              if (types_1.isMapType(typeMap, messageDesc, field, options)) {
@@ -110,7 +150,7 @@ index 2e74aae..bd6b0e8 100644
                      .endControlFlow();
              }
          }
-@@ -777,15 +755,15 @@ function generateFromPartial(typeMap, fullName, messageDesc, options) {
+@@ -777,15 +772,15 @@ function generateFromPartial(typeMap, fullName, messageDesc, options) {
              let oneofName = maybeSnakeToCamel(messageDesc.oneofDecl[field.oneofIndex].name, options);
              func = func
                  .beginControlFlow(`if (object.%L?.$case === '%L' && object.%L?.%L !== undefined && object.%L?.%L !== null)`, oneofName, fieldName, oneofName, fieldName, oneofName, fieldName)
