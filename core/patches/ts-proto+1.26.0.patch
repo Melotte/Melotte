@@ -1,0 +1,131 @@
+diff --git a/node_modules/ts-proto/build/main.js b/node_modules/ts-proto/build/main.js
+index 2e74aae..bd6b0e8 100644
+--- a/node_modules/ts-proto/build/main.js
++++ b/node_modules/ts-proto/build/main.js
+@@ -583,7 +583,7 @@ function generateFromJson(typeMap, fullName, messageDesc, options) {
+     messageDesc.field.forEach((field) => {
+         const fieldName = maybeSnakeToCamel(field.name, options);
+         // get a generic 'reader.doSomething' bit that is specific to the basic type
+-        const readSnippet = (from) => {
++        const readSnippet = (from, field) => {
+             if (types_1.isEnum(field)) {
+                 return ts_poet_1.CodeBlock.of('%T.fromJSON(%L)', types_1.basicTypeName(typeMap, field, options), from);
+             }
+@@ -616,19 +616,7 @@ function generateFromJson(typeMap, fullName, messageDesc, options) {
+                 return ts_poet_1.CodeBlock.of('%L(%L)', capitalize(types_1.valueTypeName(field).toString()), from);
+             }
+             else if (types_1.isMessage(field)) {
+-                if (types_1.isRepeated(field) && types_1.isMapType(typeMap, messageDesc, field, options)) {
+-                    const valueType = typeMap.get(field.typeName)[2].field[1];
+-                    if (types_1.isPrimitive(valueType)) {
+-                        const cstr = capitalize(types_1.basicTypeName(typeMap, FieldDescriptorProto.create({ type: valueType.type }), options).toString());
+-                        return ts_poet_1.CodeBlock.of('%L(%L)', cstr, from);
+-                    }
+-                    else {
+-                        return ts_poet_1.CodeBlock.of('%T.fromJSON(%L)', types_1.basicTypeName(typeMap, valueType, options).toString(), from);
+-                    }
+-                }
+-                else {
+-                    return ts_poet_1.CodeBlock.of('%T.fromJSON(%L)', types_1.basicTypeName(typeMap, field, options), from);
+-                }
++                return ts_poet_1.CodeBlock.of('%T.fromJSON(%L)', types_1.basicTypeName(typeMap, field, options), from);
+             }
+             else {
+                 throw new Error(`Unhandled field ${field}`);
+@@ -638,24 +626,25 @@ function generateFromJson(typeMap, fullName, messageDesc, options) {
+         func = func.beginControlFlow('if (object.%L !== undefined && object.%L !== null)', fieldName, fieldName);
+         if (types_1.isRepeated(field)) {
+             if (types_1.isMapType(typeMap, messageDesc, field, options)) {
++                const valueType = typeMap.get(field.typeName)[2].field[1];
+                 func = func
+                     .beginLambda('Object.entries(object.%L).forEach(([key, value]) =>', fieldName)
+-                    .addStatement(`message.%L[%L] = %L`, fieldName, maybeCastToNumber(typeMap, messageDesc, field, 'key', options), readSnippet('value'))
++                    .addStatement(`message.%L[%L] = %L`, fieldName, maybeCastToNumber(typeMap, messageDesc, field, 'key', options), readSnippet('value', valueType))
+                     .endLambda(')');
+             }
+             else {
+                 func = func
+                     .beginControlFlow('for (const e of object.%L)', fieldName)
+-                    .addStatement(`message.%L.push(%L)`, fieldName, readSnippet('e'))
++                    .addStatement(`message.%L.push(%L)`, fieldName, readSnippet('e', field))
+                     .endControlFlow();
+             }
+         }
+         else if (types_1.isWithinOneOf(field) && options.oneof === OneofOption.UNIONS) {
+             let oneofName = maybeSnakeToCamel(messageDesc.oneofDecl[field.oneofIndex].name, options);
+-            func = func.addStatement(`message.%L = {$case: '%L', %L: %L}`, oneofName, fieldName, fieldName, readSnippet(`object.${fieldName}`));
++            func = func.addStatement(`message.%L = {$case: '%L', %L: %L}`, oneofName, fieldName, fieldName, readSnippet(`object.${fieldName}`, field));
+         }
+         else {
+-            func = func.addStatement(`message.%L = %L`, fieldName, readSnippet(`object.${fieldName}`));
++            func = func.addStatement(`message.%L = %L`, fieldName, readSnippet(`object.${fieldName}`, field));
+         }
+         // set the default value (TODO Support bytes)
+         if (!types_1.isRepeated(field) &&
+@@ -732,24 +721,12 @@ function generateFromPartial(typeMap, fullName, messageDesc, options) {
+     // add a check for each incoming field
+     messageDesc.field.forEach((field) => {
+         const fieldName = maybeSnakeToCamel(field.name, options);
+-        const readSnippet = (from) => {
++        const readSnippet = (from, field) => {
+             if (types_1.isEnum(field) || types_1.isPrimitive(field) || types_1.isTimestamp(field) || types_1.isValueType(field)) {
+                 return ts_poet_1.CodeBlock.of(from);
+             }
+             else if (types_1.isMessage(field)) {
+-                if (types_1.isRepeated(field) && types_1.isMapType(typeMap, messageDesc, field, options)) {
+-                    const valueType = typeMap.get(field.typeName)[2].field[1];
+-                    if (types_1.isPrimitive(valueType)) {
+-                        const cstr = capitalize(types_1.basicTypeName(typeMap, FieldDescriptorProto.create({ type: valueType.type }), options).toString());
+-                        return ts_poet_1.CodeBlock.of('%L(%L)', cstr, from);
+-                    }
+-                    else {
+-                        return ts_poet_1.CodeBlock.of('%T.fromPartial(%L)', types_1.basicTypeName(typeMap, valueType, options).toString(), from);
+-                    }
+-                }
+-                else {
+-                    return ts_poet_1.CodeBlock.of('%T.fromPartial(%L)', types_1.basicTypeName(typeMap, field, options), from);
+-                }
++                return ts_poet_1.CodeBlock.of('%T.fromPartial(%L)', types_1.basicTypeName(typeMap, field, options), from);
+             }
+             else {
+                 throw new Error(`Unhandled field ${field}`);
+@@ -759,17 +736,18 @@ function generateFromPartial(typeMap, fullName, messageDesc, options) {
+         if (types_1.isRepeated(field)) {
+             func = func.beginControlFlow('if (object.%L !== undefined && object.%L !== null)', fieldName, fieldName);
+             if (types_1.isMapType(typeMap, messageDesc, field, options)) {
++                const valueType = typeMap.get(field.typeName)[2].field[1];
+                 func = func
+                     .beginLambda('Object.entries(object.%L).forEach(([key, value]) =>', fieldName)
+                     .beginControlFlow('if (value !== undefined)')
+-                    .addStatement(`message.%L[%L] = %L`, fieldName, maybeCastToNumber(typeMap, messageDesc, field, 'key', options), readSnippet('value'))
++                    .addStatement(`message.%L[%L] = %L`, fieldName, maybeCastToNumber(typeMap, messageDesc, field, 'key', options), readSnippet('value', valueType))
+                     .endControlFlow()
+                     .endLambda(')');
+             }
+             else {
+                 func = func
+                     .beginControlFlow('for (const e of object.%L)', fieldName)
+-                    .addStatement(`message.%L.push(%L)`, fieldName, readSnippet('e'))
++                    .addStatement(`message.%L.push(%L)`, fieldName, readSnippet('e', field))
+                     .endControlFlow();
+             }
+         }
+@@ -777,15 +755,15 @@ function generateFromPartial(typeMap, fullName, messageDesc, options) {
+             let oneofName = maybeSnakeToCamel(messageDesc.oneofDecl[field.oneofIndex].name, options);
+             func = func
+                 .beginControlFlow(`if (object.%L?.$case === '%L' && object.%L?.%L !== undefined && object.%L?.%L !== null)`, oneofName, fieldName, oneofName, fieldName, oneofName, fieldName)
+-                .addStatement(`message.%L = {$case: '%L', %L: %L}`, oneofName, fieldName, fieldName, readSnippet(`object.${oneofName}.${fieldName}`));
++                .addStatement(`message.%L = {$case: '%L', %L: %L}`, oneofName, fieldName, fieldName, readSnippet(`object.${oneofName}.${fieldName}`, field));
+         }
+         else {
+             func = func.beginControlFlow('if (object.%L !== undefined && object.%L !== null)', fieldName, fieldName);
+             if (types_1.isLong(field) && options.forceLong === LongOption.LONG) {
+-                func = func.addStatement(`message.%L = %L as %L`, fieldName, readSnippet(`object.${fieldName}`), types_1.basicTypeName(typeMap, field, options));
++                func = func.addStatement(`message.%L = %L as %L`, fieldName, readSnippet(`object.${fieldName}`, field), types_1.basicTypeName(typeMap, field, options));
+             }
+             else {
+-                func = func.addStatement(`message.%L = %L`, fieldName, readSnippet(`object.${fieldName}`));
++                func = func.addStatement(`message.%L = %L`, fieldName, readSnippet(`object.${fieldName}`, field));
+             }
+         }
+         // set the default value (TODO Support bytes)

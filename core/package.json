@@ -18,6 +18,7 @@
     "start:prod": "node build/bundle.js",
     "jsdoc-tsd": "jsdoc -t node_modules/libp2p*/jsdoc-tsd -r .",
     "clean": "rimraf ./build",
+    "make-tsproto": "cd src && ../node_modules/protoc/protoc/bin/protoc --plugin=../node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=codegen/tsproto */*.proto",
     "postinstall": "patch-package"
   },
   "dependencies": {
@@ -42,6 +43,7 @@
     "@types/events": "^3.0.0",
     "@types/node": "^14.0.23",
     "patch-package": "^6.2.2",
+    "protoc": "^1.0.4",
     "rimraf": "^3.0.2",
     "ts-loader": "^8.0.1",
     "ts-proto": "^1.26.0",
