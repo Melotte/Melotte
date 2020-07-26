@@ -16,3 +16,13 @@ Building or watching:
 Running:
 
 - `yarn start`
+
+
+## Building verification scripts
+
+- Install [wasienv](http://pypi.org/project/wasienv), version 0.5.3:
+```shell
+pip install wasienv==0.5.3
+```
+
+- Build scripts via `make` using `scripts/single-owner/Makefile` as an example.

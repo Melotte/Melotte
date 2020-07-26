@@ -7,7 +7,7 @@ import {Connection} from "libp2p-interfaces/src/connection";
 import IRawStorage, {NotFoundError} from "./raw";
 import Encoder from "./encoder";
 import Peer from "../peer";
-import {sleep, raceOrNull} from "../util";
+import {sleep, raceOrNull, getShortCidStr} from "../util";
 import {handleStream, getTransport} from "../transport";
 import debug from "debug";
 
@@ -43,9 +43,14 @@ export default class Storage {
 
 
 	private async* findProviders(cid: CID): AsyncIterable<{id: PeerId, multiaddrs: Multiaddr[]}> {
-		yield* this.peer.contentRouting.findProviders(cid, {
-			timeout: 5000
-		});
+		try {
+			yield* this.peer.contentRouting.findProviders(cid, {
+				timeout: 5000
+			});
+			return;
+		} catch(e) {
+			console.log(e.message);
+		}
 	}
 
 
@@ -64,8 +69,7 @@ export default class Storage {
 
 
 	private async peek(cid: CID): Promise<Buffer> {
-		const cidStr = cid.toString("base58btc");
-		const log = debug(`planet:${this.id}:${cidStr.substr(0, 5)}...${cidStr.slice(-2)}`);
+		const log = debug(`planet:${this.id}:${getShortCidStr(cid)}`);
 
 		log("Peeking");
 
@@ -162,7 +166,7 @@ export default class Storage {
 		}
 
 		log("Failed to download block");
-		throw new Error(`Could not download object ${cid} from network`);
+		throw new Error(`Could not download object ${getShortCidStr(cid)} from network`);
 	}
 
 
@@ -170,9 +174,9 @@ export default class Storage {
 		try {
 			const timeStart = Date.now();
 			await this.peer.contentRouting.provide(cid);
-			this.debug(`Finished providing ${cid} in ${(Date.now() - timeStart) / 1000}s`);
+			this.debug(`Finished providing ${getShortCidStr(cid)} in ${(Date.now() - timeStart) / 1000}s`);
 		} catch(e) {
-			this.debug(`Error while providing ${cid}: ${e.message}`);
+			this.debug(`Error while providing ${getShortCidStr(cid)}: ${e.message}`);
 		}
 	}
 

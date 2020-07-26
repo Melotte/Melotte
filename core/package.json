@@ -8,17 +8,17 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc --watch",
-    "inspect": "node --inspect build/index.js",
-    "inspect-brk": "node --inspect-brk build/index.js",
-    "start": "node build/index.js",
+    "inspect": "node --experimental-wasm-type-reflection --inspect build/index.js",
+    "inspect-brk": "node --experimental-wasm-type-reflection --inspect-brk build/index.js",
+    "start": "node --experimental-wasm-type-reflection build/index.js",
     "build:prod": "webpack --mode production",
     "watch:prod": "webpack --mode production --watch",
-    "inspect:prod": "node --inspect build/bundle.js",
-    "inspect-brk:prod": "node --inspect-brk build/bundle.js",
-    "start:prod": "node build/bundle.js",
+    "inspect:prod": "node --experimental-wasm-type-reflection --inspect build/bundle.js",
+    "inspect-brk:prod": "node --experimental-wasm-type-reflection --inspect-brk build/bundle.js",
+    "start:prod": "node --experimental-wasm-type-reflection build/bundle.js",
     "jsdoc-tsd": "jsdoc -t node_modules/libp2p*/jsdoc-tsd -r .",
     "clean": "rimraf ./build",
-    "make-tsproto": "cd src && ../node_modules/protoc/protoc/bin/protoc --plugin=../node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=codegen/tsproto */*.proto",
+    "make-tsproto": "cd src && ../node_modules/protoc/protoc/bin/protoc --plugin=../node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=codegen/tsproto --ts_proto_opt=env=node */*/*.proto",
     "postinstall": "patch-package"
   },
   "dependencies": {
@@ -35,7 +35,8 @@
     "libp2p-tcp": "^0.14.6",
     "libp2p-websockets": "^0.13.6",
     "peer-id": "^0.13.13",
-    "utf-8-validate": "^5.0.2"
+    "utf-8-validate": "^5.0.2",
+    "wasm-metering": "^0.2.1"
   },
   "devDependencies": {
     "@types/bl": "^2.1.0",
