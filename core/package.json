@@ -35,7 +35,8 @@
     "libp2p-tcp": "^0.14.6",
     "libp2p-websockets": "^0.13.6",
     "peer-id": "^0.13.13",
-    "utf-8-validate": "^5.0.2"
+    "utf-8-validate": "^5.0.2",
+    "wasm-metering": "^0.2.1"
   },
   "devDependencies": {
     "@types/bl": "^2.1.0",
