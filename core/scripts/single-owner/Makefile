@@ -2,7 +2,7 @@ all: management-verifier.wasm
 
 
 %.wasm: %.cpp
-	wasic++ "$<" -o "$@" -MMD \
+	wasic++ "$<" -o "$@" -MMD -O3 \
 		-Wl,--no-entry \
 		-Wl,--export=verify \
 		-Wl,--export=_mgmtscript_newManagementBlock \
