@@ -7,7 +7,7 @@ import {Connection} from "libp2p-interfaces/src/connection";
 import IRawStorage, {NotFoundError} from "./raw";
 import Encoder from "./encoder";
 import Peer from "../peer";
-import {sleep, raceOrNull} from "../util";
+import {sleep, raceOrNull, getShortCidStr} from "../util";
 import {handleStream, getTransport} from "../transport";
 import debug from "debug";
 
@@ -64,8 +64,7 @@ export default class Storage {
 
 
 	private async peek(cid: CID): Promise<Buffer> {
-		const cidStr = cid.toString("base58btc");
-		const log = debug(`planet:${this.id}:${cidStr.substr(0, 5)}...${cidStr.slice(-2)}`);
+		const log = debug(`planet:${this.id}:${getShortCidStr(cid)}`);
 
 		log("Peeking");
 
