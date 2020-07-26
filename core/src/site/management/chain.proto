@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+
+message Script {
+	enum Language {
+		undefined = 0;
+		wasm = 1;
+	}
+
+	Language language = 1;
+	bytes code = 2;
+}
+
+
+message ManagementBlock {
+	bytes parent = 1;
+	bytes distinguisher = 2;
+	Script managementVerifier = 3;
+	map<uint32, bytes> metadata = 4;
+
+	// Script topic_verifier = 5;
+	// Script version_verifier = 6;
+}
