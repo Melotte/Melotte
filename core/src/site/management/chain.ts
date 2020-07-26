@@ -25,9 +25,7 @@ export default class ManagementChain {
 		const block = await ManagementBlock.load(this.storage, ref);
 		if(block.parent) {
 			const parent = await this.loadDiscoveredBlock(block.parent);
-			if(!await parent.verifySuccessor(block)) {
-				throw new Error(`Block ${block.ref} is an invalid successor for ${parent.ref}`);
-			}
+			await parent.verifySuccessor(block);
 		}
 		return block;
 	}

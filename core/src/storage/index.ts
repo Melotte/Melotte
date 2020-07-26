@@ -43,9 +43,14 @@ export default class Storage {
 
 
 	private async* findProviders(cid: CID): AsyncIterable<{id: PeerId, multiaddrs: Multiaddr[]}> {
-		yield* this.peer.contentRouting.findProviders(cid, {
-			timeout: 5000
-		});
+		try {
+			yield* this.peer.contentRouting.findProviders(cid, {
+				timeout: 5000
+			});
+			return;
+		} catch(e) {
+			console.log(e.message);
+		}
 	}
 
 
@@ -161,7 +166,7 @@ export default class Storage {
 		}
 
 		log("Failed to download block");
-		throw new Error(`Could not download object ${cid} from network`);
+		throw new Error(`Could not download object ${getShortCidStr(cid)} from network`);
 	}
 
 
@@ -169,9 +174,9 @@ export default class Storage {
 		try {
 			const timeStart = Date.now();
 			await this.peer.contentRouting.provide(cid);
-			this.debug(`Finished providing ${cid} in ${(Date.now() - timeStart) / 1000}s`);
+			this.debug(`Finished providing ${getShortCidStr(cid)} in ${(Date.now() - timeStart) / 1000}s`);
 		} catch(e) {
-			this.debug(`Error while providing ${cid}: ${e.message}`);
+			this.debug(`Error while providing ${getShortCidStr(cid)}: ${e.message}`);
 		}
 	}
 

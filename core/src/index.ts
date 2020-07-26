@@ -17,29 +17,13 @@ function sleep(ms) {
 	try {
 		const wasm = await fs.readFile("scripts/single-owner/management-verifier.wasm");
 
-		const peer = new Peer(await PeerId.create());
-		await peer.start();
-		const storage = new Storage(peer, new RawMemoryStorage());
-
-		const genesisData = {
-			managementVerifier: new Script("verify", Boolean, Language.wasm, wasm),
-			metadata: {}
-		};
-		const chain = await ManagementChain.create(storage, genesisData);
-		const genesisBlock = await chain.getGenesisBlock();
-		const secondBlock = await genesisBlock.branchOff({
-			managementVerifier: new Script("verify", Boolean, Language.wasm, Buffer.concat([wasm, Buffer.from([1, 2, 3])])),
-			metadata: {
-				1: Buffer.from([1, 2, 3, 4])
-			}
-		});
-
-		console.log(await genesisBlock.verifySuccessor(secondBlock));
-
-		/*
 		const peer1 = new Peer(await PeerId.create());
 		const peer2 = new Peer(await PeerId.create());
 		await Promise.all([peer1.start(), peer2.start()]);
+
+		peer1.peerStore.addressBook.set(peer2.peerId, peer2.multiaddrs);
+		await peer1.dial(peer2.peerId);
+
 		const storage1 = new Storage(peer1, new RawMemoryStorage(), "storage1");
 		const storage2 = new Storage(peer2, new RawMemoryStorage(), "storage2");
 
@@ -56,7 +40,7 @@ function sleep(ms) {
 			}
 		});
 		const thirdBlock = await secondBlock.branchOff({
-			managementVerifier: new Script("verify", Boolean, Language.wasm, Buffer.concat([wasm, Buffer.from([0])])),
+			managementVerifier: new Script("verify", Boolean, Language.wasm, wasm),
 			metadata: {
 				1: Buffer.from([1, 2, 3, 4])
 			}
@@ -66,7 +50,6 @@ function sleep(ms) {
 
 		const chainDup = await ManagementChain.fromGenesisBlock(storage2, genesisBlock.ref);
 		console.log(await chainDup.loadDiscoveredBlock(thirdBlock.ref));
-		*/
 
 		/* peer.on("peer:discovery", peer => {
 			console.log("Discovered %s", peer.toB58String()); // Log discovered peer

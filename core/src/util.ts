@@ -17,7 +17,7 @@ export async function raceOrNull<T>(data: Promise<T>[]): Promise<T | null> {
 
 export function getShortCidStr(cid: CID): string {
 	const cidStr = cid.toString("base58btc");
-	return `${cidStr.substr(0, 5)}...${cidStr.slice(-2)}`;
+	return `${cidStr.substr(0, 2)}...${cidStr.slice(-5)}`;
 }
 
 

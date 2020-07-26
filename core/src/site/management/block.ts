@@ -20,26 +20,35 @@ export class ManagementBlock implements IConstructable<ManagementBlock> {
 	}
 
 
-	async verifySuccessor(child: ManagementBlock): Promise<boolean> {
-		return await this.managementVerifier.run(child, this);
+	toString(): string {
+		return `ManagementBlock{${this.ref}}`;
+	}
+
+
+	async verifySuccessor(child: ManagementBlock): Promise<void> {
+		if(!(await this.managementVerifier.run(child, this))) {
+			throw new Error(`Block ${child.ref} is an invalid successor for ${this.ref}`);
+		}
 	}
 
 
 	async branchOff(childData: IManagementBlockData): Promise<ManagementBlock> {
-		const child = {
+		const childInfo = {
 			...childData,
 			distinguisher: Buffer.alloc(0),
 			parent: this.ref.cid.buffer
 		};
-		const childBlock = Buffer.from(IManagementBlock.encode(child).finish());
+		const childBlock = Buffer.from(IManagementBlock.encode(childInfo).finish());
 		const childCid = await this.storage.add(childBlock);
-		return new ManagementBlock(
+		const child = new ManagementBlock(
 			this.storage,
 			new Ref<ManagementBlock>(childCid),
 			childData.managementVerifier,
 			childData.metadata,
 			this.ref
 		);
+		await this.verifySuccessor(child);
+		return child;
 	}
 
 

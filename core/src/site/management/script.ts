@@ -1,6 +1,7 @@
 import {Script as IScript} from "../../codegen/tsproto/site/management/chain";
 import {tryToPrimitive, Primitive, mapTuple} from "../../util";
 import WASM, {CPtr} from "./wasm";
+import debug from "debug";
 
 
 export enum Language {
@@ -22,16 +23,22 @@ export class InvalidScriptError extends Error {
 
 
 export default class Script<FuncName extends string = string, Args extends Constructable[] = Constructable[], R = unknown> {
+	private debug: debug.Debugger;
+
+
 	constructor(
 		private funcName: FuncName,
 		private returnCtor: new() => R,
 		public language: Language,
 		public code: Buffer
 	) {
+		this.debug = debug(`planet:script:${funcName}`);
 	}
 
 
 	private async runWasm(...args: Args): Promise<Primitive<R>> {
+		this.debug(`Run ${this.funcName}(${args.join(", ")})`);
+
 		const wasm = await WASM.create(this.code);
 
 		// Allocate memory for arguments
@@ -61,6 +68,8 @@ export default class Script<FuncName extends string = string, Args extends Const
 		// Convert primitives to wrapped types and back to primitives.
 		// This allows simple return type check
 		let result: unknown = wasm.callNumber(this.funcName, ...callArgs);
+
+		this.debug(`Result: ${result}`);
 
 		// Free memory
 		for(const obj of toFree) {
