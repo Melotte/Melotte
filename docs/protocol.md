@@ -26,7 +26,6 @@ An overview of the whole protocol stack (bottom-up):
 - Interface server
 - Application Frontend
 
-
 ## Obfsucation protocols [unfinished]
 
 Pattern recognition is a popular censorship method, yet most p2p protocols have obvious protocol characteristics. Encryption protocols can't solve this problem, because the protocol handshake (multistream) for encryption can be recognized by GFW.
@@ -34,7 +33,7 @@ Pattern recognition is a popular censorship method, yet most p2p protocols have 
 libp2p supports protocol negotiation. Unfortunately, it was proven to be easily detectable by DPI methods. Instead of using protocol negotiation, we use multiaddr-level protocol specification. For instance, the following protocols are supported, except libp2p defaults:
 
 - Websockets with obfuscated multistream handshake
-- A hand-written wrapper on top of TLS [unfinished]
+- TLS [unfinished]
 - *Other candidates are possible and welcome*
 
 
@@ -57,7 +56,9 @@ Applications often use these two protocols together:
 
 ## Block protocol
 
-Block protocol uses *data blocks* as packets. Data blocks are used to transfer *objects*, which is a collective term for all raw data.
+Block protocol uses _data blocks_ as packets. Data blocks are used to transfer _objects_, which is a collective term for all raw data.
+
+> The reference that a block uses for delta-codec is called `base`
 
 Data blocks contain object content in a compressed and encoded format. Say, instead of sending raw version content, one would encode the data, put it into a data block and send the block.
 
@@ -138,28 +139,25 @@ interface DeltaEncodedData {
 }
 ```
 
-
 ## Channel protocol
 
-The channel protocol is used for two purposes:
+The channel protocol are used for two purposes:
 
-- *Metadata*. When a site is updated, i.e. a new commit is published, the channel protocol is used to send new version CID to site seeders.
-- *Realtime data*. This includes chat messages, etc.
+- _Metadata_. When a site is updated, i.e. a new commit is published, the channel protocols are used to send new version CID to site seeders.
+- _Realtime data_. This includes chat messages, etc.
 
-Each packet sent over the channel protocol is signed with a public key.
+Each `ChannelData` MUST be signed with a publickey. 
 
 ```typescript
 interface ChannelData {
-    sender: PublicKey;
-    signature: Buffer;
+    sender: Publickey; // sender field can be either the ‘sender' or others. For example, a peer requests the data of a site with pubkey
+    signature: Buffer;  // Signature, size limited
 }
-
 interface Metadata extends ChannelData {
-    timestamp: Date; // TODO(ivanq): is this really needed?
+    timestamp: Date; // See time guarantee below
     blocks: CID[];
     extraData: Buffer;  // Urgent data, size limited
 }
-
 interface RealTimeData extends ChannelData {  // Example: Instant messaging
     data: Buffer;
 }
@@ -188,8 +186,6 @@ A <- C <- D <- F <- G
 
 Obviously, A and B are not encoded. C uses A and B as bases, D uses C and E as bases, and so on.
 
---- [the text below is not merged with 2b19cbe yet] ---
-
 When the history of C is pruned, the data of A and B is merged into C, and A and B remains unchanged. Of course, we can't change A and B, because they are immutable. The process of merging produces a completely new block. The references of A and B still persist in C in case anyone wants to get its pruned history. If we decided to archive D, only C and E would be stored as references.
 
 ```typescript
@@ -198,9 +194,6 @@ interface ArchivedDeltaBlock extends RawBlock {
     archiveTime: Date;
 }
 ```
-
---- [the text above is not merged with 2b19cbe yet] ---
-
 
 ## Denial of service
 
@@ -240,3 +233,23 @@ interface TrustRecord { // Encoded data on datablock
     trusted: {key: Pubkey, weight: number}[];
 }
 ```
+
+## Time guarantee
+
+This section describes a way to achieve a As Sound As Possible timestamp (ASAP) for site content. A site is firstly signed on its content, blocks. When the signer decides to publish the site, he signs a metadata that links to the blocks of the site, and propagate the metadata via channel protocols. Typically, channel protocols need peers to forwardt metadata. We call the peers that get the metadata from the site signer directly, the first layer, and the peers that get the metadata from these peers the second layer. In a channel protocol that doesn't require metadata forwarding, there are always offline peers which require forwading. Note that the metadata being forwarded is always that metadata signed by the original signer. Denote the time the author signs the blocks with $T(block)$, the timestamp he writes in the metadata as `T(meta)`, and the time the first layer receieves the metadata as `T(1)`, and the second layer as `T(2)`. Denote the time you receives the metadata as `T(you)` and the now as `Now`
+
+When the metadata is published, if the timestamp is fake, by protocol, all well-behaved peers will reject and drop the false metadata. In case any peer in the first layer wrongly propagates the metadata into the second layer, the first layer fails and `Now` has increased. The peers can't trust other peers, so they can only trust their own clocks. Assume there are `N` *malicious* nodes evenly distributed, so the probability to connect to a *malicious* node is `N/totalNodes`. Denote it as `P`. Metadata without a timestamp field will be instantly dropped, probability `1-P`. The first layer fails to reject false metadata, `P`, and the second layer `P^2`, and the layer n `P^n`. On layer n , the probability that layer drops false metadata is `1 - P^n`. For instance, P is `0.1`, on the layer two the probability of rejecting false timestamps is already `99%`, so that all timestamps pass through layers satisfy condition `T(meta) < T(2)` , at least. It is `T(2)`, but not `T(1)`. See paragraphs below.
+
+Why a timestamp in metadata is necessary ? As we know, each layer verifies the timestamp before propagating to another layer, which prevents false information from spreading. If there is timestamp built in metadata, validating timestamp takes less then a second, and we can get the result, to propagate or not. Block protocols are always slow, however. Let the time to look up timestamp inside the block be `Tx`. In the first layer, the condition to check timestamp *inevitably* becomes `T(meta) < Tx + T(1)`, rather than `T(meta) < T(1)`. Intuitively, `Tx` can range from 30 seconds to five minutes. `Tx` has been added to `T(1)` in the condition, indicating we gave the metadata more *tolerance*, because the metadata can have a false timestamp `T(1) < T(meta) < Tx + T(1)` which is valid in this situation. You may say we have intended tolerance for the local time can't be accurate, but this tolerance accumulates. In the layer 2, for `T(2)` is approximately `Tx + T(1)`, it is `T(meta) < 2Tx + T(1)`. Besides this cost, every peer that propagates the metadata has to query DHT and download the block, which is very expensive and vulnerable to DoS attack. Through this process, the timestamp in the metadata can be thought as valid. When you get the timestamp and download the blocks, you check the blocks against condition `T(block) < T(meta)`, because `T(meta) < T(1)` is always true.
+
+Will you get false timestamp ? It depends on your 'location' in the network, and whether you are the first time visiting a site. For `backward` false timestamp, any such attempt is prohibited by corresponding site validation script, as long as you have the original content that contains the 'true' timestamp (the first timestamp is considered true, see below). It's impossible to do time guarantee on site content, because this requires to download the new content. Regarding 'future' false timestamp, it is already suppressed by `T(block) < T(meta) < T(1)`. If you are next to the false timestamp sender, you can always detect and drop that metadata. It is still possible to have a false timestamp that `T(1) < T(meta) < T(you)`, when the delay on layers are significant, since `Now` constantly increases. Let's call this `delay timestamp`. The more layers, the more delay, hence more unwanted tolerance. Except for `delay timestamp`, the probability to recognize false future timestamp as valid is 0.
+
+Can we prevent `backward` timestamps ? Yes, we can. We have multiple options, the one is to validate after propagation and downloading a site, the other one is to validate *during propagation*. The former has the risk of history being archived. In contrast, the latter prevents false timestamps in the first place, which is arguably better as it doesn't even acknowledge the existence of false timestamps.
+
+A site that cares about the correctness of timestamps can use metadataScript to validate timestamps wtih one more condition against backward false timestamps before propagating metadata (on object level not block). This is the solution to `backward` timestamp. For backward timestamp, only peers with corresponding site downloaded and know the original timestamp can validate, unlike future timestamp validation where every peer knows the condition to validate, which is `T(meta) < Now`. Fortunately, the site propagation protocol has a channel for each site respectively. Only the content of that site can be published on that channel, so false timestamps won't be mistakenly propagated in any other channel which doesn't accept those timestamps at all. Notice that the timestamp in the metadata is still necessary, because the block referenced in metadata is always undownloaded at the moment you receive that metadata; but in backward timestamp validation, you already have the site content downloaded since you have subscribed to that channel. Also, there may be peers who don't have site downloaded, as new comers. The solution is simple, in that time-sensitive site, disallow the new comers to propagate metadata, although this may reduce connectivity. The mechanism to validate backward timestamp is basically the same to future timestamp. Denote the target timestamp is `T(back)`, and the 'correct' timestamp is `T(prev)`. We use condition `T(prev) == T(back)`, as published timestamps can't be changed. The probability of each layer of successful rejection is the same as future timestamp.
+
+What if I am the new comer of a site ? This is the only possible scenario where you might get a false `backward` timestamp. You already have the awareness of `Now` in the condition of future timestamp validation; however, you don't have the knowledge of the original timestamps in a site. As a result, you won't get a false future timestamp. If the blocks are complete, ie. not archived or pruned, the data script can automatically detect any attempt to modify existing timestamps. The probability of getting false timestamp as a new comer is $P$, assuming all malicious nodes are united to give you false timestamps of that site. Possible solutions include requesting site metadata from multiple peers, and compare to check if they are identical. Download the history if the condition fails. As the N malicious nodes are distributed evenly, the probability reduces if we request from more nodes. For $k$ times of metadata requests or answers, the probability of getting false timestamp is $P^k$. In fact, we already request from multiple peers, because there are always peers answering requests at the same time.
+
+Sybil attack ? There can't be sybil attack, since creating massive identities don't help. This is not a reputation system. If there are enough layers, false timestamps eventually vanish. If not, the better, everyone can validate the timestamps on their own, as they know $Now$ and original timestamps.
+
+In conclusion, both `backward` and `future` timestamps are banned, in time sensitive sites which limit the metadata to be propagated only among peers who have downloaded that site.
