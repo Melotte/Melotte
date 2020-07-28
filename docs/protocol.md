@@ -188,7 +188,7 @@ A <- C <- D <- F <- G
 
 Obviously, A and B are not encoded. C uses A and B as bases, D uses C and E as bases, and so on.
 
---- [the text below not merged with 2b19cbe yet] ---
+--- [the text below is not merged with 2b19cbe yet] ---
 
 When the history of C is pruned, the data of A and B is merged into C, and A and B remains unchanged. Of course, we can't change A and B, because they are immutable. The process of merging produces a completely new block. The references of A and B still persist in C in case anyone wants to get its pruned history. If we decided to archive D, only C and E would be stored as references.
 
@@ -199,52 +199,30 @@ interface ArchivedDeltaBlock extends RawBlock {
 }
 ```
 
+--- [the text above is not merged with 2b19cbe yet] ---
+
+
 ## Denial of service
 
-The cost of being DOSed depends on the protocol. In the worst case of the channel protocol, attackers generate a new publickey after every certain time period. Planet has different threshold for `Metadata` and `RealtimeData` , because the former is metadata only and is always size-limited. `Metadata` is processed as follows:
+The cost of being DoSed depends on the protocol. In the worst case for the channel protocol, attackers generate a new public key for every message. Planet has different threshold for `Metadata` and `RealtimeData`, because the former is metadata only and is always size-limited. `Metadata` is processed as follows:
 
-1. Decode protobuf
-2. Filter off banned peers
-3. Verify publickey and validate message *
-4. Keep this data for later process *
-5. Forward it to other peers
+1. Decode protobuf.
+2. Filter off banned peers.
+3. Verify public key and validate message. *
+4. Keep this data for later processing. *
+5. Forward it to other peers.
 
-Only step three and four are vulnerable. However, with peer reputation system and conditional forward, spam on channels are efficiently suppressed.
+Only step three and four are vulnerable. However, with peer reputation system and conditional forwarding, channel spam is efficiently suppressed.
 
-When we have a CID of a `DataBlock` (The CID is from a trusted author)
+When we have a CID of a `DataBlock` which we received from a trusted peer, we do the following:
 
-1. Download datablock with block protocols *
-2. Decode protobuf
-3. Filter off this block if it's signed by a banned peer
-4. Unpack block, eg. delta-codec *
-5. Verify the hash of unpacked content
-6. (Give the data to upper layers, eg. validate with dataScript)
+1. Download datablock via the block protocol. *
+2. Decode protobuf.
+3. Filter off this block if it's signed by a banned peer.
+4. Unpack block, e.g. with delta-encoding. This step may require downloading other blocks. *
+5. Verify the hash of unpacked content.
+6. Proceed handling the data on upper layers, e.g. running validation scripts.
 
-## Graph Data
-
-Encryption should be done before codec.
-
-```typescript
-interface EncryptedBlock extends EncodedBlock {
-    scriptPath: any;
-}
-```
-
-Planet retains the abstraction of 'site', while offering several cross-site reuse patterns.
-
-Management chain is the core of a site, which is fully fetched and interpreted before any other operations. A site is addressed by the publickey of the genesis block of its management chain. All 'blocks' are encoded into `DataBlock` .
-
-```typescript
-interface MgmtBlock { // It's the encoded data, so not extending DataBlock
-    prevBlock: CID; // CID to the DataBlock that carries the preceding block
-    compiledScript: Buffer; // Validation script for the chain itself
-    dataScript?: Buffer; // One site has only one data script. Specifying field datascript to update the datascript for the site.
-    encryptionScript?: Buffer; // The same
-    metaDataScript?: Buffer
-}
-```
-
-Each succeeding block is validated by its predecessor. In case of branches, decisions are also made by the common predecessor.
 
 ## Web of trust [unfinished]
 
