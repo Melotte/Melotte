@@ -1,4 +1,4 @@
-import Libp2p from "../libp2p/src";
+import Libp2p from "../libp2p";
 
 
 class Block {

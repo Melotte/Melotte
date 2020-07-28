@@ -1,4 +1,4 @@
-import Libp2p from "./libp2p/src";
+import Libp2p from "./libp2p";
 import Multiaddr from "multiaddr";
 
 // Transports
@@ -31,10 +31,10 @@ interface PeerOptions {
 }
 
 
-export default async function createLibp2p(options?: PeerOptions): Libp2p {
-	options = options ?? {};
-	options.peerId = options.peerId ?? await PeerId.create();
-	options.bootstrap = options.bootstrap ?? [];
+export default async function createLibp2p(options?: PeerOptions): Promise<Libp2p> {
+	options = options || {};
+	options.peerId = options.peerId || await PeerId.create();
+	options.bootstrap = options.bootstrap || [];
 
 	return new Libp2p({
 		peerId: options.peerId,
