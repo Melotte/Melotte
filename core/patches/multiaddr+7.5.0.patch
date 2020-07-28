@@ -1,0 +1,12 @@
+diff --git a/node_modules/multiaddr/src/protocols-table.js b/node_modules/multiaddr/src/protocols-table.js
+index 4578e43..9f5b03f 100644
+--- a/node_modules/multiaddr/src/protocols-table.js
++++ b/node_modules/multiaddr/src/protocols-table.js
+@@ -51,6 +51,7 @@ Protocols.table = [
+   [444, 96, 'onion'],
+   [445, 296, 'onion3'],
+   [446, V, 'garlic64'],
++  [448, 0, 'tls'],
+   [460, 0, 'quic'],
+   [477, 0, 'ws'],
+   [478, 0, 'wss'],
