@@ -33,8 +33,8 @@ module.exports = ({handler, upgrader}, options) => {
 	const listener = new EventEmitter()
 
 	const server = tls.createServer({
-		key: fs.readFileSync('../data/key.pem'),
-		cert: fs.readFileSync('../data/cert.pem'),
+		key: fs.readFileSync('data/key.pem'),
+		cert: fs.readFileSync('data/cert.pem'),
 		requestCert: false,
 		ca: []
 	}, async socket => {
