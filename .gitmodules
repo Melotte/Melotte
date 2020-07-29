@@ -3,4 +3,10 @@
 	url = https://github.com/nodejs/node.git
 [submodule "libp2p"]
 	path = libp2p
-	url = https://github.com/libp2p/js-libp2p
+	url = https://github.com/Melotte/js-libp2p
+[submodule "multiaddr"]
+	path = multiaddr
+	url = https://github.com/Melotte/js-multiaddr
+[submodule "mafmt"]
+	path = mafmt
+	url = https://github.com/Melotte/js-mafmt
