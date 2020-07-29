@@ -2495,14 +2495,13 @@ klaw-sync@^6.0.0:
   dependencies:
     graceful-fs "^4.1.11"
 
-libp2p-bootstrap@^0.11.0:
+"libp2p-bootstrap@git+https://github.com/Melotte/js-libp2p-bootstrap.git#v0.11.0-patched2":
   version "0.11.0"
-  resolved "https://registry.yarnpkg.com/libp2p-bootstrap/-/libp2p-bootstrap-0.11.0.tgz#08fa191ee13e2b95761d3cd465446ceca924c0f9"
-  integrity sha512-vLMmCJsecnHdR9pPUxvOimtnZdOfGXv4EImNB+Y0DKX3LUSyzb868N5oWCGhKMxDwt2Nm6/7Vl/Vd+eHnsU79g==
+  resolved "git+https://github.com/Melotte/js-libp2p-bootstrap.git#5e09a021c26846e9079012ff3e3c824a52e3a73a"
   dependencies:
     debug "^4.1.1"
-    mafmt "^7.0.0"
-    multiaddr "^7.2.1"
+    mafmt "git+https://github.com/Melotte/js-mafmt.git#v7.1.0-patched"
+    multiaddr "git+https://github.com/Melotte/js-multiaddr.git#v7.5.0-patched"
     peer-id "^0.13.5"
 
 libp2p-crypto@^0.17.3, libp2p-crypto@^0.17.6, libp2p-crypto@^0.17.7, libp2p-crypto@^0.17.8, libp2p-crypto@~0.17.0, libp2p-crypto@~0.17.1:
