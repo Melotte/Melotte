@@ -41,7 +41,7 @@
     "p-timeout": "^3.2.0",
     "peer-id": "^0.13.13",
     "utf-8-validate": "^5.0.2",
-    "libp2p": "../libp2p"
+    "libp2p": "git+https://github.com/Melotte/js-libp2p.git"
   },
   "devDependencies": {
     "@types/chai": "^4.2.11",
