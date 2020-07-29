@@ -6,6 +6,7 @@ import ManagementChain from "./site/management/chain";
 import Script, {Language} from "./site/management/script";
 import {promises as fs} from "fs";
 import WASM from "./site/management/wasm";
+import PubsubChannel from "./channel/pubsub";
 
 
 function sleep(ms) {
@@ -33,8 +34,21 @@ function sleep(ms) {
 		});
 		await peer2.start();
 
-		peer1.peerStore.addressBook.set(peer2.peerId, peer2.multiaddrs);
-		await peer1.dial(peer2.peerId);
+		await peer2.dial(peer1.peerId);
+
+		const pubsub1 = new PubsubChannel(peer1, "melotte-test");
+		const pubsub2 = new PubsubChannel(peer2, "melotte-test");
+
+		await sleep(500);
+
+		pubsub1.send(Buffer.from("Hello, world!"));
+
+		await sleep(100);
+
+		pubsub1.destroy();
+		pubsub2.destroy();
+
+		/*
 
 		const storage1 = new Storage(peer1, new RawMemoryStorage(), "storage1");
 		const storage2 = new Storage(peer2, new RawMemoryStorage(), "storage2");
@@ -61,15 +75,7 @@ function sleep(ms) {
 		await sleep(3000);
 
 		const chainDup = await ManagementChain.fromGenesisBlock(storage2, genesisBlock.ref);
-		console.log(await chainDup.loadDiscoveredBlock(thirdBlock.ref));
-
-		/* peer.on("peer:discovery", peer => {
-			console.log("Discovered %s", peer.toB58String()); // Log discovered peer
-		});
-
-		peer.connectionManager.on("peer:connect", connection => {
-			console.log("Connected to %s", connection.remotePeer.toB58String());
-		}); */
+		console.log(await chainDup.loadDiscoveredBlock(thirdBlock.ref)); */
 	} catch(e) {
 		console.log(e.stack);
 	}

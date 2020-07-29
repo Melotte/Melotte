@@ -1,4 +1,5 @@
 import CID from "cids";
+import PeerId from "peer-id";
 
 
 export async function sleep(time: number): Promise<void> {
@@ -18,6 +19,11 @@ export async function raceOrNull<T>(data: Promise<T>[]): Promise<T | null> {
 export function getShortCidStr(cid: CID): string {
 	const cidStr = cid.toString("base58btc");
 	return `${cidStr.substr(0, 2)}...${cidStr.slice(-5)}`;
+}
+
+export function getShortPeerIdStr(peerId: PeerId): string {
+	const idStr = peerId.toB58String();
+	return `${idStr.substr(0, 2)}...${idStr.slice(-5)}`;
 }
 
 
