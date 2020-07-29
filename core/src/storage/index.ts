@@ -6,7 +6,7 @@ import {Connection} from "libp2p-interfaces/src/connection";
 
 import IRawStorage, {NotFoundError} from "./raw";
 import Encoder from "./encoder";
-import Peer from "../peer";
+import Libp2p from "libp2p";
 import {sleep, raceOrNull, getShortCidStr} from "../util";
 import {handleStream, getTransport} from "../transport";
 import debug from "debug";
@@ -19,7 +19,7 @@ export default class Storage {
 	private encoder: Encoder;
 	private debug: debug.Debugger;
 
-	constructor(public peer: Peer, private rawStorage: IRawStorage, public id: string = "storage") {
+	constructor(public peer: Libp2p, private rawStorage: IRawStorage, public id: string = "storage") {
 		this.debug = debug(`planet:${id}`);
 
 		this.encoder = new Encoder();

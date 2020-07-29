@@ -1,4 +1,4 @@
-import Peer from "./peer";
+import createPeer from "./node";
 import Storage from "./storage";
 import PeerId from "peer-id";
 import RawMemoryStorage from "./storage/rawmemory";
@@ -17,9 +17,21 @@ function sleep(ms) {
 	try {
 		const wasm = await fs.readFile("scripts/single-owner/management-verifier.wasm");
 
-		const peer1 = new Peer(await PeerId.create());
-		const peer2 = new Peer(await PeerId.create());
-		await Promise.all([peer1.start(), peer2.start()]);
+		const peer1 = await createPeer({
+			peerId: await PeerId.create(),
+			listen: ["/ip4/0.0.0.0/tcp/2520/tls"],
+			bootstrap: [""]
+		});
+		await peer1.start();
+
+		const peer2 = await createPeer({
+			peerId: await PeerId.create(),
+			listen: ["/ip4/0.0.0.0/tcp/2521/tls"],
+			bootstrap: [
+				peer1.multiaddrs[0].toString() + "/p2p/" + peer1.peerId.toB58String()
+			]
+		});
+		await peer2.start();
 
 		peer1.peerStore.addressBook.set(peer2.peerId, peer2.multiaddrs);
 		await peer1.dial(peer2.peerId);
