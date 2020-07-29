@@ -33,16 +33,13 @@ module.exports = ({handler, upgrader}, options) => {
 	const listener = new EventEmitter()
 
 	const server = tls.createServer({
-		key: fs.readFileSync('./key.pem'),
-		cert: fs.readFileSync('./cert.pem'),
+		key: fs.readFileSync('../data/key.pem'),
+		cert: fs.readFileSync('../data/cert.pem'),
 		requestCert: false,
 		ca: []
 	}, async socket => {
 		// Avoid uncaught errors caused by unstable connections
 		socket.on('error', err => log('socket error', err))
-			socket.on('data', (data) => {
-				console.error(data.toString());
-			});
 		let maConn
 		let conn
 		try {

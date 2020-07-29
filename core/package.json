@@ -22,7 +22,6 @@
     "postinstall": "patch-package"
   },
   "dependencies": {
-    "@types/chai": "^4.2.11",
     "async-mutex": "^0.2.4",
     "bufferutil": "^4.0.1",
     "ipfs-bitswap": "^2.0.1",
@@ -41,9 +40,11 @@
     "libp2p-websockets": "^0.13.6",
     "p-timeout": "^3.2.0",
     "peer-id": "^0.13.13",
-    "utf-8-validate": "^5.0.2"
+    "utf-8-validate": "^5.0.2",
+    "libp2p": "../libp2p"
   },
   "devDependencies": {
+    "@types/chai": "^4.2.11",
     "@types/bl": "^2.1.0",
     "@types/debug": "^4.1.5",
     "@types/events": "^3.0.0",

@@ -5,8 +5,9 @@ import PeerId from "peer-id";
 (async () => {
 	const peer1 = await createPeer({
 		peerId: await PeerId.create(),
-		listen: ["/ip4/0.0.0.0/tcp/2520/tls"
-	]});
+		listen: ["/ip4/0.0.0.0/tcp/2520/tls"],
+		bootstrap: [""]
+	});
 	await peer1.start();
 
 	const peer2 = await createPeer({
