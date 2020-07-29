@@ -3018,6 +3018,29 @@ multiaddr@^7.1.0, multiaddr@^7.2.1, multiaddr@^7.3.0, multiaddr@^7.4.3, multiadd
     multibase "^0.7.0"
     varint "^5.0.0"
 
+"multiaddr@git+https://github.com/Melotte/js-multiaddr#v7.5.0-patched":
+  version "7.5.0"
+  uid "628746c6ff903585522cdb0bcac1b281270f01b3"
+  resolved "git+https://github.com/Melotte/js-multiaddr#628746c6ff903585522cdb0bcac1b281270f01b3"
+  dependencies:
+    buffer "^5.5.0"
+    cids "~0.8.0"
+    class-is "^1.1.0"
+    is-ip "^3.1.0"
+    multibase "^0.7.0"
+    varint "^5.0.0"
+
+"multiaddr@git+https://github.com/Melotte/js-multiaddr.git#v7.5.0-patched":
+  version "7.5.0"
+  resolved "git+https://github.com/Melotte/js-multiaddr.git#628746c6ff903585522cdb0bcac1b281270f01b3"
+  dependencies:
+    buffer "^5.5.0"
+    cids "~0.8.0"
+    class-is "^1.1.0"
+    is-ip "^3.1.0"
+    multibase "^0.7.0"
+    varint "^5.0.0"
+
 multibase@^0.7.0:
   version "0.7.0"
   resolved "https://registry.yarnpkg.com/multibase/-/multibase-0.7.0.tgz#1adfc1c50abe05eefeb5091ac0c2728d6b84581b"

@@ -24,7 +24,10 @@
   "dependencies": {
     "async-mutex": "^0.2.4",
     "bufferutil": "^4.0.1",
-    "libp2p": "^0.28.8",
+    "ipfs-bitswap": "^2.0.1",
+    "ipfs-block-service": "^0.17.1",
+    "ipfs-utils": "^2.2.0",
+    "libp2p": "git+https://github.com/Melotte/js-libp2p.git#v0.28.9-patched",
     "libp2p-bootstrap": "^0.11.0",
     "libp2p-kad-dht": "^0.19.9",
     "libp2p-mdns": "^0.14.2",
@@ -34,12 +37,15 @@
     "libp2p-spdy": "^0.13.3",
     "libp2p-tcp": "^0.14.6",
     "libp2p-websockets": "^0.13.6",
+    "mafmt": "git+https://github.com/Melotte/js-mafmt.git#v7.1.0-patched",
+    "multiaddr": "git+https://github.com/Melotte/js-multiaddr#v7.5.0-patched",
+    "p-timeout": "^3.2.0",
     "peer-id": "^0.13.13",
-    "utf-8-validate": "^5.0.2",
-    "wasm-metering": "^0.2.1"
+    "utf-8-validate": "^5.0.2"
   },
   "devDependencies": {
     "@types/bl": "^2.1.0",
+    "@types/chai": "^4.2.11",
     "@types/debug": "^4.1.5",
     "@types/events": "^3.0.0",
     "@types/node": "^14.0.23",
