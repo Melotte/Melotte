@@ -1,4 +1,4 @@
-import Libp2p from "./libp2p";
+import Libp2p from "libp2p";
 import Multiaddr from "multiaddr";
 
 // Transports
