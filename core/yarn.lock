@@ -2785,9 +2785,9 @@ libp2p-websockets@^0.13.6:
     multiaddr-to-uri "^5.0.0"
     p-timeout "^3.2.0"
 
-"libp2p@git+https://github.com/Melotte/js-libp2p.git":
+"libp2p@git+https://github.com/Melotte/js-libp2p.git#v0.28.9-patched":
   version "0.28.9"
-  resolved "git+https://github.com/Melotte/js-libp2p.git#7bdf8658e6a8594a370cf788bf24733df3621d48"
+  resolved "git+https://github.com/Melotte/js-libp2p.git#f585f6644df3d9fbc0864ff9e26652cf1374aed8"
   dependencies:
     abort-controller "^3.0.0"
     aggregate-error "^3.0.1"
@@ -2809,10 +2809,10 @@ libp2p-websockets@^0.13.6:
     libp2p-crypto "^0.17.8"
     libp2p-interfaces "^0.3.1"
     libp2p-utils "^0.1.2"
-    mafmt "git+https://github.com/Melotte/js-mafmt.git"
+    mafmt "git+https://github.com/Melotte/js-mafmt.git#v7.1.0-patched"
     merge-options "^2.0.0"
     moving-average "^1.0.0"
-    multiaddr "git+https://github.com/Melotte/js-multiaddr.git"
+    multiaddr "git+https://github.com/Melotte/js-multiaddr.git#v7.5.0-patched"
     multistream-select "^0.15.0"
     mutable-proxy "^1.0.0"
     node-forge "^0.9.1"
@@ -2923,7 +2923,7 @@ mafmt@^7.0.0, mafmt@^7.1.0:
   dependencies:
     multiaddr "^7.3.0"
 
-"mafmt@git+https://github.com/Melotte/js-mafmt.git":
+"mafmt@git+https://github.com/Melotte/js-mafmt.git#v7.1.0-patched":
   version "7.1.0"
   resolved "git+https://github.com/Melotte/js-mafmt.git#278264be24e90fad74ea45c5bc9d80bf5db9eab3"
   dependencies:
@@ -3127,7 +3127,7 @@ multiaddr@^7.1.0, multiaddr@^7.2.1, multiaddr@^7.3.0, multiaddr@^7.4.3, multiadd
     multibase "^0.7.0"
     varint "^5.0.0"
 
-"multiaddr@git+https://github.com/Melotte/js-multiaddr.git":
+"multiaddr@git+https://github.com/Melotte/js-multiaddr.git#v7.5.0-patched":
   version "7.5.0"
   resolved "git+https://github.com/Melotte/js-multiaddr.git#628746c6ff903585522cdb0bcac1b281270f01b3"
   dependencies:

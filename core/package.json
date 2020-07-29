@@ -38,10 +38,11 @@
     "libp2p-spdy": "^0.13.3",
     "libp2p-tcp": "^0.14.6",
     "libp2p-websockets": "^0.13.6",
+    "mafmt": "git+https://github.com/Melotte/js-mafmt.git#v7.1.0-patched",
     "p-timeout": "^3.2.0",
     "peer-id": "^0.13.13",
     "utf-8-validate": "^5.0.2",
-    "libp2p": "git+https://github.com/Melotte/js-libp2p.git"
+    "libp2p": "git+https://github.com/Melotte/js-libp2p.git#v0.28.9-patched"
   },
   "devDependencies": {
     "@types/chai": "^4.2.11",
