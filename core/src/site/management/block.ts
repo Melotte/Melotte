@@ -7,11 +7,12 @@ import crypto from "crypto";
 import CID from "cids";
 import {getShortCidStr} from "../../util";
 import WASM, {CPtr} from "./wasm";
+import ManagementChain from "./chain";
 
 
 export class ManagementBlock implements IConstructable<ManagementBlock> {
 	private constructor(
-		private storage: Storage,
+		private chain: ManagementChain,
 		public ref: Ref<ManagementBlock>,
 		public managementVerifier: Script<"verify", [ManagementBlock, ManagementBlock], Boolean>,
 		public metadata: {[key: number]: Buffer},
@@ -39,15 +40,16 @@ export class ManagementBlock implements IConstructable<ManagementBlock> {
 			parent: this.ref.cid.buffer
 		};
 		const childBlock = Buffer.from(IManagementBlock.encode(childInfo).finish());
-		const childCid = await this.storage.add(childBlock);
+		const childCid = await this.chain.storage.add(childBlock);
 		const child = new ManagementBlock(
-			this.storage,
+			this.chain,
 			new Ref<ManagementBlock>(childCid),
 			childData.managementVerifier,
 			childData.metadata,
 			this.ref
 		);
 		await this.verifySuccessor(child);
+		this.chain.channel.send(this.chain.channelTopic, childCid.buffer);
 		return child;
 	}
 
@@ -74,8 +76,8 @@ export class ManagementBlock implements IConstructable<ManagementBlock> {
 	}
 
 
-	static async load(storage: Storage, ref: Ref<ManagementBlock>): Promise<ManagementBlock> {
-		const raw = await storage.get(ref.cid);
+	static async load(chain: ManagementChain, ref: Ref<ManagementBlock>): Promise<ManagementBlock> {
+		const raw = await chain.storage.get(ref.cid);
 		const block = IManagementBlock.decode(raw);
 
 		if(!block.managementVerifier) {
@@ -85,7 +87,7 @@ export class ManagementBlock implements IConstructable<ManagementBlock> {
 		const managementVerifier = Script.fromInterface<[ManagementBlock]>()("verify", Boolean, block.managementVerifier);
 
 		return new ManagementBlock(
-			storage,
+			chain,
 			ref,
 			managementVerifier,
 			block.metadata,

@@ -23,6 +23,9 @@ import Bootstrap from "libp2p-bootstrap";
 import KadDHT from "libp2p-kad-dht";
 import PeerId from "peer-id";
 
+// Pubsub
+import Gossipsub from "libp2p-gossipsub";
+
 
 interface PeerOptions {
 	peerId?: PeerId,
@@ -48,8 +51,8 @@ export default async function createLibp2p(options?: PeerOptions): Promise<Libp2
 			peerDiscovery: [MulticastDNS, Bootstrap],
 			contentRouting: [],
 			peerRouting: [],
-			dht: KadDHT
-			// pubsub:
+			dht: KadDHT,
+			pubsub: Gossipsub
 		},
 		config: {
 			peerDiscovery: {
