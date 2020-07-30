@@ -118,6 +118,13 @@
   resolved "https://registry.yarnpkg.com/@types/events/-/events-3.0.0.tgz#2862f3f58a9a7f7c3e78d79f130dd4d71c25c2a7"
   integrity sha512-EaObqwIvayI5a8dCzhFrjKzVwKLxjoG9T6Ppd5CEo07LRKfQ8Yokw54r5+Wq7FaBQ+yXRvQAYPrHwya1/UFt9g==
 
+"@types/interface-datastore@^1.0.1":
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/@types/interface-datastore/-/interface-datastore-1.0.1.tgz#4845ea53bed33b470d42324a9a959d20d27bfd36"
+  integrity sha512-BjpDsX6N8p8zzVEaugPbgecunwQNGQWalVISXRaLTzRJcK5UjMs2EYJvnhvRlA00MTjEFXfkChCX4k5+2rO5+A==
+  dependencies:
+    "@types/node" "*"
+
 "@types/long@^4.0.0", "@types/long@^4.0.1":
   version "4.0.1"
   resolved "https://registry.yarnpkg.com/@types/long/-/long-4.0.1.tgz#459c65fa1867dafe6a8f322c4c51695663cc55e9"
@@ -909,6 +916,14 @@ caseless@~0.12.0:
   version "0.12.0"
   resolved "https://registry.yarnpkg.com/caseless/-/caseless-0.12.0.tgz#1b681c21ff84033c826543090689420d187151dc"
   integrity sha1-G2gcIf+EAzyCZUMJBolCDRhxUdw=
+
+cbor@^5.0.2:
+  version "5.0.2"
+  resolved "https://registry.yarnpkg.com/cbor/-/cbor-5.0.2.tgz#aa8c3820280ebb9f3a45b2a4c66ac344294443de"
+  integrity sha512-6JiKVURxxO92FntzTJq54QdN/8fBaBwD7+nNyGIAi1HL9mBgU3YK6ULV8k7WTuT/EwfRsjy3MuqDKlkQMCmfXg==
+  dependencies:
+    bignumber.js "^9.0.0"
+    nofilter "^1.0.3"
 
 chai-checkmark@^1.0.1:
   version "1.0.1"
@@ -1725,6 +1740,11 @@ flush-write-stream@^1.0.0:
     inherits "^2.0.3"
     readable-stream "^2.3.6"
 
+fnv1a@^1.0.1:
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/fnv1a/-/fnv1a-1.0.1.tgz#915e2d6d023c43d5224ad9f6d2a3c4156f5712f5"
+  integrity sha1-kV4tbQI8Q9UiStn20qPEFW9XEvU=
+
 for-in@^1.0.2:
   version "1.0.2"
   resolved "https://registry.yarnpkg.com/for-in/-/for-in-1.0.2.tgz#81068d295a8142ec0ac726c6e2200c30fb6d5e80"
@@ -2192,28 +2212,35 @@ ipfs-bitswap@^2.0.1:
     streaming-iterables "^5.0.2"
     varint-decoder "^0.4.0"
 
-ipfs-repo-migrations@^1.0.0:
-  version "1.0.0"
-  resolved "https://registry.npm.taobao.org/ipfs-repo-migrations/download/ipfs-repo-migrations-1.0.0.tgz#cebaf447c365ac54cf0d8c14d770971d8ca832ad"
-  integrity sha1-zrr0R8NlrFTPDYwU13CXHYyoMq0=
+ipfs-repo-migrations@^2.0.0:
+  version "2.0.1"
+  resolved "https://registry.yarnpkg.com/ipfs-repo-migrations/-/ipfs-repo-migrations-2.0.1.tgz#1f20be95654d204529db1cd027a612aaf0390d42"
+  integrity sha512-kKo5TI81i04nFnjuSDCdCejKeNwX7LCk7PRbcT19YQd/1s98lDT7xY3wLpa02VOUkuQsQk2/NujAutzHdGiTrQ==
   dependencies:
     buffer "^5.6.0"
+    cbor "^5.0.2"
     chalk "^4.0.0"
     cids "^0.8.3"
     datastore-core "^1.1.0"
     datastore-fs "^1.0.0"
     datastore-level "^1.1.0"
     debug "^4.1.0"
+    fnv1a "^1.0.1"
     interface-datastore "^1.0.2"
+    ipld-dag-pb "^0.18.5"
     multibase "^1.0.1"
+    multicodec "^1.0.3"
+    multihashing-async "^1.0.0"
     proper-lockfile "^4.1.1"
+    protons "^1.2.1"
+    varint "^5.0.0"
     yargs "^15.3.1"
     yargs-promise "^1.1.0"
 
-ipfs-repo@^4.0.0:
-  version "4.0.0"
-  resolved "https://registry.npm.taobao.org/ipfs-repo/download/ipfs-repo-4.0.0.tgz#ae06a78963adddf05a0574aece58531db12c5bd4"
-  integrity sha1-rganiWOt3fBaBXSuzlhTHbEsW9Q=
+ipfs-repo@^5.0.0:
+  version "5.0.0"
+  resolved "https://registry.yarnpkg.com/ipfs-repo/-/ipfs-repo-5.0.0.tgz#993633f25a3017586f2392e08da656d48bc58db5"
+  integrity sha512-V+WdgIqFbt5H1+6rNkYLCXlrLB4kO1MgZeagPJ3V6y5GPiCU3hTmqaNmNqzYA9ko4yGjdypK0fSFRw2LK2Q9/g==
   dependencies:
     bignumber.js "^9.0.0"
     buffer "^5.6.0"
@@ -2225,7 +2252,7 @@ ipfs-repo@^4.0.0:
     debug "^4.1.0"
     err-code "^2.0.0"
     interface-datastore "^1.0.2"
-    ipfs-repo-migrations "^1.0.0"
+    ipfs-repo-migrations "^2.0.0"
     ipfs-utils "^2.2.0"
     ipld-block "^0.9.1"
     it-map "^1.0.2"
@@ -2263,6 +2290,19 @@ ipld-block@^0.9.1, ipld-block@^0.9.2:
     buffer "^5.5.0"
     cids "~0.8.0"
     class-is "^1.1.0"
+
+ipld-dag-pb@^0.18.5:
+  version "0.18.5"
+  resolved "https://registry.yarnpkg.com/ipld-dag-pb/-/ipld-dag-pb-0.18.5.tgz#29e736dcdab10a4dffbef9dec27723e2e56be962"
+  integrity sha512-8IAPZrkRjgTpkxV9JOwXSBe0GXNxd4B2lubPgbifTGL92rZOEKWutpijsWsWvjXOltDFHKMQIIIhkgLC5RPqbA==
+  dependencies:
+    buffer "^5.6.0"
+    cids "~0.8.0"
+    class-is "^1.1.0"
+    multicodec "^1.0.1"
+    multihashing-async "~0.8.1"
+    protons "^1.0.2"
+    stable "^0.1.8"
 
 is-accessor-descriptor@^0.1.6:
   version "0.1.6"
@@ -3532,7 +3572,7 @@ multihashes@~0.4.15:
     multibase "^0.7.0"
     varint "^5.0.0"
 
-multihashing-async@^0.8.0, multihashing-async@^0.8.1, multihashing-async@^0.8.2:
+multihashing-async@^0.8.0, multihashing-async@^0.8.1, multihashing-async@^0.8.2, multihashing-async@~0.8.1:
   version "0.8.2"
   resolved "https://registry.yarnpkg.com/multihashing-async/-/multihashing-async-0.8.2.tgz#3d5da05df27d83be923f6d04143a0954ff87f27f"
   integrity sha512-2lKa1autuCy8x7KIEj9aVNbAb3aIMRFYIwN7mq/zD4pxgNIVgGlm+f6GKY4880EOF2Y3GktHYssRy7TAJQ2DyQ==
@@ -3698,6 +3738,11 @@ node-uuid@^1.4.8:
   version "1.4.8"
   resolved "https://registry.yarnpkg.com/node-uuid/-/node-uuid-1.4.8.tgz#b040eb0923968afabf8d32fb1f17f1167fdab907"
   integrity sha1-sEDrCSOWivq/jTL7HxfxFn/auQc=
+
+nofilter@^1.0.3:
+  version "1.0.3"
+  resolved "https://registry.yarnpkg.com/nofilter/-/nofilter-1.0.3.tgz#34e54b4cc9757de0cad38cc0d19462489b1b7f5d"
+  integrity sha512-FlUlqwRK6reQCaFLAhMcF+6VkVG2caYjKQY3YsRDTl4/SEch595Qb3oLjJRDr8dkHAAOVj2pOx3VknfnSgkE5g==
 
 normalize-path@^2.1.1:
   version "2.1.1"
@@ -4154,7 +4199,7 @@ protocol-buffers-schema@^3.3.1:
   resolved "https://registry.yarnpkg.com/protocol-buffers-schema/-/protocol-buffers-schema-3.4.0.tgz#2f0ea31ca96627d680bf2fefae7ebfa2b6453eae"
   integrity sha512-G/2kcamPF2S49W5yaMGdIpkG6+5wZF0fzBteLKgEHjbNzqjZQ85aAs1iJGto31EJaSTkNvHs5IXuHSaTLWBAiA==
 
-protons@^1.0.1, protons@^1.0.2:
+protons@^1.0.1, protons@^1.0.2, protons@^1.2.1:
   version "1.2.1"
   resolved "https://registry.yarnpkg.com/protons/-/protons-1.2.1.tgz#5f1e0db8b2139469cd1c3b4e332a4c2d95d0a218"
   integrity sha512-2oqDyc/SN+tNcJf8XxrXhYL7sQn2/OMl8mSdD7NVGsWjMEmAbks4eDVnCyf0vAoRbBWyWTEXWk4D8XfuKVl3zg==
@@ -4717,6 +4762,11 @@ ssri@^6.0.1:
   integrity sha512-3Wge10hNcT1Kur4PDFwEieXSCMCJs/7WvSACcrMYrNp+b8kDL1/0wJch5Ni2WrtwEa2IO8OsVfeKIciKCDx/QA==
   dependencies:
     figgy-pudding "^3.5.1"
+
+stable@^0.1.8:
+  version "0.1.8"
+  resolved "https://registry.yarnpkg.com/stable/-/stable-0.1.8.tgz#836eb3c8382fe2936feaf544631017ce7d47a3cf"
+  integrity sha512-ji9qxRnOVfcuLDySj9qzhGSEFVobyt1kIOSkj1qZzYLzq7Tos/oUUWvotUPQLlrsidqsK6tBH89Bc9kL5zHA6w==
 
 static-extend@^0.1.1:
   version "0.1.2"
