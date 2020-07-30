@@ -6,24 +6,23 @@ import {type} from "os";
 import Repo from "ipfs-repo"
 import mergeOptions from "merge-options"
 
+// Rewritten ipfs-block-service to support more block protocols
 
 class Block {
-	public blockProtocols: Map<string, BlockProtocol>;
+	public blockProtocols = new Map<string, BlockProtocol>();
 	public defaultOptions: options;
-	public repoInited: boolean;
-	constructor(public libp2p: Libp2p, public repo: Repo, options?: options) {
-		this.defaultOptions = {include: Array.from(this.blockProtocols.keys()), repoOnly: false, noExternal: false, ...options}
-		if(options?.noExternal)
-			this.defaultOptions.include = ["bitswap"]
-	}
+	constructor(public libp2p: Libp2p, public repo: Repo) {}
 	private mergeOptions(options: options = {}) {
 		return mergeOptions(this.defaultOptions, options)
 	}
-	async init(protocols: BlockProtocol[]) {
+	async init(protocols: BlockProtocol[], options?: options) {
 		for(const proto of protocols)
 			this.blockProtocols.set(proto.protocolName, proto)
 		for(let [name, proto] of this.blockProtocols)
 			await proto.init()
+		this.defaultOptions = {include: Array.from(this.blockProtocols.keys()), repoOnly: false, noExternal: false, ...options}
+		if(options?.noExternal)
+			this.defaultOptions.include = ["bitswap"]
 	}
 	async get(cid: CID, options?: options): Promise<Block> {
 		options = this.mergeOptions(options)
