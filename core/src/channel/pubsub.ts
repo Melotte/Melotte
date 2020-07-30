@@ -9,26 +9,31 @@ export default class PubsubChannel implements ChannelProtocol {
 	private debug: debug.Debugger;
 
 
-	constructor(private libp2p: Libp2p, private topic: string) {
-		this.debug = debug(`planet:pubsub:${getShortPeerIdStr(libp2p.peerId)}:${topic}`);
-		libp2p.pubsub.subscribe([topic], this.handler.bind(this));
-		this.debug("Subscribed");
+	constructor(private libp2p: Libp2p) {
+		this.debug = debug(`planet:pubsub:${getShortPeerIdStr(libp2p.peerId)}`);
 	}
 
 
-	destroy(): void {
-		this.libp2p.pubsub.unsubscribe([this.topic]);
-		this.debug("Unsubscribed");
+	on(topic: string, handler: (Buffer) => void): void {
+		this.libp2p.pubsub.subscribe([topic], msg => this.handler(topic, msg, handler));
+		this.debug(`Subscribed to ${topic}`);
 	}
 
 
-	async send(message: Buffer): Promise<void> {
-		this.debug(`Sending 0x${message.toString("hex")}`);
-		this.libp2p.pubsub.publish([this.topic], message);
+	unsubscribe(topic: string): void {
+		this.libp2p.pubsub.unsubscribe([topic]);
+		this.debug(`Unsubscribed from ${topic}`);
 	}
 
 
-	private handler(message: {data: Buffer}): void {
-		this.debug(`Received 0x${message.data.toString("hex")}`);
+	async send(topic: string, message: Buffer): Promise<void> {
+		this.debug(`Sending 0x${message.toString("hex")} to ${topic}`);
+		this.libp2p.pubsub.publish([topic], message);
+	}
+
+
+	private handler(topic: string, message: {data: Buffer}, callback: (Buffer) => void): void {
+		this.debug(`Received 0x${message.data.toString("hex")} from ${topic}`);
+		callback(message.data);
 	}
 }

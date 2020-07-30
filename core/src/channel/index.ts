@@ -1,5 +1,6 @@
 export default interface ChannelProtocol {
-	destroy(): void;
+	on(topic: string, handler: (Buffer) => void): void;
+	unsubscribe(topic: string): void;
 
-	send(message: Buffer): Promise<void>;
+	send(topic: string, message: Buffer): Promise<void>;
 }
