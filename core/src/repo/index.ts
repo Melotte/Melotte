@@ -5,36 +5,44 @@ import deepEqual from "fast-deep-equal"
 import PeerId from "peer-id";
 
 
-export class Repo {
-	public repoInited: boolean;
+export class RepoError extends Error {
+}
+
+
+export default class Repo {
 	public config: Config;
 	public repo: IPFSRepo;
 	public peerID: PeerId;
+
+
 	async init(config: Config) {
 		this.repo = new IPFSRepo(config.Repo.Path, {autoMigrate: false})
-		this.repoInited = true
+
+		let repoInited = true;
 		if(this.repo.closed) {
 			try {
-				await this.repo.open()
+				await this.repo.open();
 			} catch(e) {
-				this.repoInited = false
-				throw new IPFSRepo("Failed to init repo", e)
+				repoInited = false;
 			}
 		}
-		if(!this.repoInited && config.Repo.AutoCreate === false)
+
+		if(!repoInited && config.Repo.AutoCreate === false)
 			throw new RepoError("Repo creation disabled")
-		if(this.repoInited)
+		if(repoInited)
 			await this.initExisitingRepo(config)
 		else
 			await this.initNewRepo(config)
 	}
+
 	async initExisitingRepo(newConfig: Config) {
-		this.config = await this.repo.config.getAll()
+		this.config = <Config>await this.repo.config.getAll()
 		let merged = mergeOptions(this.config, newConfig)
 		if(!deepEqual(merged, this.config))
-			await this.repo.config.set(this.config = merged)
+			await this.repo.config.replace(this.config = merged)
 		this.peerID = await PeerId.createFromPrivKey(this.config.Identity!.PrivKey)
 	}
+
 	async initNewRepo(newConfig: Config) {
 		this.config = mergeOptions(defaultConfig, newConfig)
 		if(await this.repo.exists() === true)
@@ -49,12 +57,5 @@ export class Repo {
 		}
 		await this.repo.init(this.config)
 		await this.repo.open()
-	}
-}
-
-export class RepoError extends Error {
-	constructor(msg?: string, public internal?: Error) {
-		super(msg)
-		Object.setPrototypeOf(this, RepoError.prototype)
 	}
 }

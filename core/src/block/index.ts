@@ -32,7 +32,7 @@ class Block {
 		if(this.hasBitswap(protos))
 			filtered.push(this.blockProtocols.get("bitswap")!.get(cid, options))
 		else
-			filtered.push(this.repo.blocks.get(cid, options))
+			filtered.push(this.repo.blocks.get(cid))
 		if(filtered.length > 0)
 			return await Promise.race(filtered)
 		else
@@ -47,7 +47,7 @@ class Block {
 				if(this.hasBitswap(protocols))
 					ps.push(this.blockProtocols.get("bitswap")!.get(cid, options))
 				else
-					ps.push(this.repo.blocks.get(cid, options))
+					ps.push(this.repo.blocks.get(cid))
 				yield Promise.race(ps)
 			}
 		else
@@ -58,9 +58,9 @@ class Block {
 		let protos = this.filterProtocols(options),
 			filtered = protos.map(([k, p]) => p.put(block, options))
 		if(this.hasBitswap(protos))
-			filtered.push(this.blockProtocols.get("bitswap")!.put(block, options))
+			filtered.push(this.blockProtocols.get("bitswap")!.put(block))
 		else
-			filtered.push(this.repo.blocks.put(block, options))
+			filtered.push(this.repo.blocks.put(block))
 		if(filtered.length > 0)
 			return await Promise.race(filtered)
 		else
@@ -73,9 +73,9 @@ class Block {
 			for(let block of blocks) {
 				let ps = protocols.map(([k, p]) => p.put(block, options))
 				if(this.hasBitswap(protocols))
-					ps.push(this.blockProtocols.get("bitswap")!.put(block, options))
+					ps.push(this.blockProtocols.get("bitswap")!.put(block))
 				else
-					ps.push(this.repo.blocks.put(block, options))
+					ps.push(this.repo.blocks.put(block))
 				yield Promise.race(ps)
 			}
 		else
@@ -88,7 +88,7 @@ class Block {
 			.filter(([k, p]) => options!.include!.includes(k) && options!.exclude !== k)
 	}
 	async delete(cid: CID, options?) {
-		return this.repo.blocks.delete(cid, options)
+		return this.repo.blocks.delete(cid)
 	}
 	async has(cid: CID) {
 		return await this.repo.blocks.has(cid)
