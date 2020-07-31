@@ -5,7 +5,7 @@ import debug from "debug";
 import CID from "cids";
 import {getShortCidStr} from "../../util";
 import {ManagementBlock, IManagementBlockData, encodeGenesisBlock} from "./block";
-import ChannelProtocol from "../../channel";
+import {ChannelProtocol} from "../../channel";
 
 
 export default class ManagementChain {

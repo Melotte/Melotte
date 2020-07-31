@@ -48,6 +48,7 @@
     "multicodec": "^1.0.4",
     "p-timeout": "^3.2.0",
     "peer-id": "^0.13.13",
+    "typical": "^6.0.1",
     "utf-8-validate": "^5.0.2",
     "wasm-metering": "^0.2.1"
   },

@@ -2,13 +2,13 @@ import Libp2p from "libp2p";
 import debug from "debug";
 import {getShortPeerIdStr} from "../util";
 
-import ChannelProtocol from ".";
+import {ChannelProtocol} from ".";
 
 
 export default class PubsubChannel implements ChannelProtocol {
 	private debug: debug.Debugger;
 
-
+	protocolName = "pubsub"
 	constructor(private libp2p: Libp2p) {
 		this.debug = debug(`planet:pubsub:${getShortPeerIdStr(libp2p.peerId)}`);
 	}

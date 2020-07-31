@@ -1,6 +1,5 @@
 import CID from "cids"
-import Block from "ipld-block"
-import {Block as BlockManager} from "./index"
+import IPLDBlock from "ipld-block"
 
 // Reference IPFS BlockService
 // BlockProtocols should translate IPFS formats into corresponding formats
@@ -8,8 +7,8 @@ import {Block as BlockManager} from "./index"
 export default abstract class BlockProtocol {
 	abstract protocolName: string;
 	abstract init(): void;
-	abstract put(block: Block, options?): Promise<Block>;
-	abstract get(cid: CID, options?): Promise<Block>;
+	abstract put(block: IPLDBlock, options?): Promise<IPLDBlock>;
+	abstract get(cid: CID, options?): Promise<IPLDBlock>;
 	async delete(cid: CID, options?): Promise<boolean> {
 		return true
 	}

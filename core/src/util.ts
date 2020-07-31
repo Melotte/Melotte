@@ -80,8 +80,8 @@ assertType<bigint>(toPrimitive(BigInt(123)));
 }
 
 
-export function tryToPrimitive<T>(ctor: { new(): T } | undefined, value: unknown): Primitive<T>;
-export function tryToPrimitive<T>(ctor: { new(): T } | undefined, value: unknown): Primitive<WrappedPrimitive> | Object {
+export function tryToPrimitive<T>(ctor: {new(): T} | undefined, value: unknown): Primitive<T>;
+export function tryToPrimitive<T>(ctor: {new(): T} | undefined, value: unknown): Primitive<WrappedPrimitive> | Object {
 	if(ctor === undefined) {
 		if(value !== undefined) {
 			throw new TypeError(`Invalid type: expected undefined, got ${typeof value}`);
@@ -103,10 +103,32 @@ export function mapTuple<
 >(
 	tuple: Tuple, callback: Callback
 ): {
-	[I in keyof Tuple]: Callback extends (arg: Tuple[I]) => infer R ? R : never
-} {
+		[I in keyof Tuple]: Callback extends (arg: Tuple[I]) => infer R ? R : never
+	} {
 	return <any>tuple.map(callback);
 }
 
 assertType<[string, string]>(mapTuple([1, 2], n => n.toString()));
 assertType<[number, number]>(mapTuple([1, 2], n => n));
+
+export function extendIterator(iterator: Iterator<any>): Iterator<any> {
+	// @ts-ignore
+	iterator.first = () => async (iterator) => {
+		for await(const value of iterator)
+			return value;
+	}
+	// @ts-ignore
+	iterator.last = () => async (iterator) => {
+		let value
+		for await(value of iterator);
+		return value
+	}
+	// @ts-ignore
+	iterator.all = () => async (iterator) => {
+		const values: any[] = []
+		for await(const value of iterator)
+			values.push(value);
+		return values
+	}
+	return iterator
+} 

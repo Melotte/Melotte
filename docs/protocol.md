@@ -32,8 +32,8 @@ Pattern recognition is a popular censorship method, yet most p2p protocols have 
 
 libp2p supports protocol negotiation. Unfortunately, it was proven to be easily detectable by DPI methods. Instead of using protocol negotiation, we use multiaddr-level protocol specification. For instance, the following protocols are supported, except libp2p defaults:
 
-- Websockets with obfuscated multistream handshake
-- TLS [unfinished]
+- TLS 
+- Websockets with obfuscated multistream handshake [TODO]
 - *Other candidates are possible and welcome*
 
 
@@ -216,8 +216,9 @@ When we have a CID of a `DataBlock` which we received from a trusted peer, we do
 5. Verify the hash of unpacked content.
 6. Proceed handling the data on upper layers, e.g. running validation scripts.
 
+Note that low-level DDoS defense should not depend on WoT system.
 
-## Web of trust [unfinished]
+## Web of trust
 
 The idea of web of trust is that, the only trustworhy person is yourself. Let the count peers you directly trust be N1, and the count of peers trusted by each peer you trust be respectively M[1], M[2], ... , M[N1]. So, in the third layer, the trustworhiness of the first peer is 1/N1/M[1].
 
@@ -233,6 +234,38 @@ interface TrustRecord { // Encoded data on datablock
     trusted: {key: Pubkey, weight: number}[];
 }
 ```
+
+> There are *only* two options, either blockchain or WoT, to prevent sybil attack and offer a reasonable functionality.
+> Blockchain is not censorship-resistant, however.
+
+### Naming
+
+> Although the paragraphs below mainly talk about DNS, the solutions also apply to user name.
+
+Existing naming solutions in decentralized networks include NameCoin, ENS. Like conventional centralized DNS, you have to buy names, but many names have already been kept by investors, who make money from nothing. Let's consider what the purpose of DNS is. It is definitely not about investing, and one shouldn't own large numbers of names. Obviously, DNS provides a convenience service, a mapping betwenn domain names and addresses *for its users*. Under the WoT, we have a solution, which gives the freedom back to users. 
+
+WoT based DNS. 
+
+- Each user can publish name records for their sites via channel protocol.
+- Visitors resolve domain names based on WoT evaluation result, as follows
+  - A user can choose one candidate from all competing sites regarding a domain name, and publish a preference record
+  - When resolving a name, the name evaluated by WoT with highest score are selected.
+
+Unfortuately, we can't trust users completely. They might choose a phishing website for a domain name, or trust some dishonest people. However, trusting always exist. When you use a DApp registered on ENS, you implicitly trust ENS, which is an authority, although it is seemingly decentralized. Neither trusting users, nor authoriy only is applicable. A domain name may be resolved to different addresses in different parts of the network. This is actually inevitable, since if you allow multiple name resoltuion service, there is always inconsistency. In conclusion, WoT is natural and singular consensus is unnecessary and impractical. 
+
+In practice, we use sites as the main entities in name resolution system, called *name provider*. A name provider site can be a group of users, a blockchain, a static mapping table, or even only a script.
+
+### Spam defense
+
+> PoW is useless
+
+WoT based spam defense are applied on higher layers, block protocol and site content. When exchanging blocks, peers with higher trustworhiness are prioritized, which is increased by user or automatically set according to the behaviour of the peer. Normally, user specified trust records have much higher weight. On application layer, the content shown to the user is based on WoT and site itself. Since the user implicitly trust the site when visiting it, the site has the right to ajust the ratio and influence of WoT evaluation result. The actual problem is about protocols, where you can't rely on human decision. WoT prioritizes known and trusted peers, while there might be DoS attack consuming limited bandwidth remaining for new comers. 
+
+One possible solution is to ask the requester peer for a captcha, or even user-specified challenge. If the peer passes the challenge, he gets the trust, less or more, from the challenger. In other words, he joined the Web of Trust, since the requester is also trusted by others. Depending on the difficulty of captcha and the circumstances of the challenger, or WoT, he may need to do one or multiple captchas.
+
+### Distributed searching
+
+Duo to the efficiency of possible DoS on it, this may happen only within WoT. To search on a site, or all sites, the requester sends a search request on channel, and collects and sorts the search results sent by other peers.
 
 ## Time guarantee
 

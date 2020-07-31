@@ -3,7 +3,7 @@ declare module "ipfs-repo" {
 	import Multiaddr from "multiaddr";
 	import DataStore from "interface-datastore/src/adapter";
 	import type {Query, Key as IKey} from "interface-datastore";
-	import Block from "ipld-block";
+	import IPLDBlock from "ipld-block";
 
 
 	type Key = Buffer | string | IKey;
@@ -51,13 +51,13 @@ declare module "ipfs-repo" {
 		stat(): Promise<Stat>;
 
 		blocks: {
-			put(block: Block): Promise<Block>;
-			putMany(source: AsyncIterable<Block>): AsyncIterator<Block>;
-			get(cid: CID): Promise<Block>;
-			getMany(source: AsyncIterable<CID>): AsyncIterable<Block>;
+			put(block: IPLDBlock): Promise<IPLDBlock>;
+			putMany(source: AsyncIterable<IPLDBlock>): AsyncIterator<IPLDBlock>;
+			get(cid: CID): Promise<IPLDBlock>;
+			getMany(source: AsyncIterable<CID>): AsyncIterable<IPLDBlock>;
 			has(cid: CID): Promise<boolean>;
 			delete(cid: CID): Promise<boolean>;
-			query<T>(query: Query<T>): AsyncIterator<Block | CID>;
+			query<T>(query: Query<T>): AsyncIterator<IPLDBlock | CID>;
 			delete(cid: CID): Promise<CID>;
 			deleteMany(source: AsyncIterable<CID>): AsyncIterator<CID>;
 		};
