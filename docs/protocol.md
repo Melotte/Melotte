@@ -32,10 +32,9 @@ Pattern recognition is a popular censorship method, yet most p2p protocols have 
 
 libp2p supports protocol negotiation. Unfortunately, it was proven to be easily detectable by DPI methods. Instead of using protocol negotiation, we use multiaddr-level protocol specification. For instance, the following protocols are supported, except libp2p defaults:
 
-- TLS 
+- TLS
 - Websockets with obfuscated multistream handshake [TODO]
 - *Other candidates are possible and welcome*
-
 
 ## Channel and block protocols
 
@@ -52,7 +51,6 @@ Planet uses the following two protocols under the hood:
 Applications often use these two protocols together:
 
 - Instant messaging. Messages arrive in channels first. In case the receiver isn't online, messages are also stored temporarily by every peer on this site until the receiver downloads them or the messages die.
-
 
 Both *IPFS blocks and objects* are a part of *block protocol*.
 
@@ -79,7 +77,7 @@ For instance, the following formats could be or are supported:
 
 Additionally, the formats can be stacked on top of each other. Notice that order matters: i.e. first delta-encoding and then compressing data is more efficient than first compressing it and then delta-encoding. The first way is known as stacking compression *on top of* delta-encoding, the second way is stacking delta-encoding *on top of* compression.
 
-The CID that is announced on the DHT is a hash of the actual non-encoded data, ie. *objects*, not the hash of a data block. 
+The CID that is announced on the DHT is a hash of the actual non-encoded data, ie. *objects*, not the hash of a data block.
 
 Data blocks can be sent to other peers in the following two ways:
 
@@ -146,17 +144,20 @@ The channel protocol are used for two purposes:
 - _Metadata_. When a site is updated, i.e. a new commit is published, the channel protocols are used to send new version CID to site seeders.
 - _Realtime data_. This includes chat messages, etc.
 
-Each `ChannelData` MUST be signed with a publickey. 
+Each `ChannelData` MUST be signed with a publickey.
 
 ```typescript
 interface ChannelData {
     sender: Publickey; // sender field can be either the ‘sender' or others. For example, a peer requests the data of a site with pubkey
     signature: Buffer;  // Signature, size limited
 }
-interface Metadata extends ChannelData {
+interface Metadata extends ChannelData { // Metadata for the site, or the content of a user
     timestamp: Date; // See time guarantee below
     blocks: CID[];
+    blocks_archived: CID[];
     extraData: Buffer;  // Urgent data, size limited
+    prevMetadata?: CID; // CID of the previous metadata
+    // This actually creates a metadata chain, but normally it is not used.
 }
 interface RealTimeData extends ChannelData {  // Example: Instant messaging
     data: Buffer;
@@ -167,12 +168,12 @@ interface RealTimeData extends ChannelData {  // Example: Instant messaging
 
 ![](./site.drawio.svg)
 
-Publishing new versions of a site or its user content can only take place on channels, because you can't put a link to the new version in the block of previous version. Given a genesis management block of a site, it's impossible to get its sucessors without channel protocol. Another aspect is user content, which is basically aggregating based on some rules, ie. data script. 
+Publishing new versions of a site or its user content can only take place on channels, because you can't put a link pointing to the new version in the block of the previous version. Given a genesis management block of a site, it's impossible to get its sucessors without channel protocol. Another aspect is user content, which is basically aggregating based on some rules, ie. data script. In addition to the graph, when the author signs and publishes the metadata of his blocks, other peers listening on the channel *cache* the received metadata in the repo, as if they are blocks, and *re-propagate* the metadata when other peers request it. For each version of an `object`, the signer generates a new metadata. The dafult behaviour (well-behaving) of a peer is to re-propagate the *newest* version of an object, since new blocks normally link to old blocks. To identify which block you got is the successor of an arbitrary block, the successor block (or its metadata) should contain a link to its previous version, whether it's a RawBlock or an EncodededBlock. Melotte maintains a key-value store to track the history of each object, which uses the CID of the first block of the object as key, the last CID of the block of the object as value. Each block of an object is called a commit or a version, which can have bases if it is a EncodedBlock.
 
-In addition to graph, when the author signs and publishes the metadata of his blocks, other peers listening on the channel *cache* the received metadata in the repo, as if it is a block, and *re-propagate* the metadata when other peers request it. For each version of an `object`, the signer generates a new metada  - Object
-    - Versions
-      - Bases
-        - Blocksta. The dafult behaviour (well-behaving) of a peer is to re-propagate the *newest* version of an object, since new blocks normally link to old blocks. To identify which block you got is the successor of an arbitrary block, the successor block (or its metadata) should contain a link to its previous version, whether it's a RawBlock or an EncodededBlock. Melotte maintains a key-value store to track the history of each object, which uses the CID of the first block of the object as key, the last CID of the block of the object as value. Each block of an object is called a commit or a version, which can have bases if it is a EncodedBlock. 
+As shown in the picture, a user publishes a request on channel, and other peers response with all related data, which is called *Propagation Protocol*. This doesn't guarantee the user gets all data of a site, including site data and user data, in the network. Furthermore, it is even not possible in theory, because there can peers hold data privately and never publishes its content. The user can always get the newest versions and considerably complete data, as long as at least a single peer publishes the newest or missing data. For the content owner, publish failure is more often than this, due to network issues, such as censorship. To mitigate spam, a time interval disallowing duplicating request is introduced, which is also known as *request window*. For each request window, only one request is allowed, and thus no duplicating response would be sent. The size of request window determines how fast we can download site, from scratch. 
+Once there has been a single peer responded the request, other peers won't send the same metadata again. At most, in one request window, there can be one request, and metadata of site and user data.
+
+An improvement is to put site metadata on DHT using the publickey of the site as the key. Now only user data requires propagation protocol.
 
 The hierarchy looks like this
 
@@ -182,27 +183,54 @@ The hierarchy looks like this
       - Bases
         - Blocks
 
+> Don't confuse melotte block/object and ipfs block/object. 
+
 ### Archiving and pruning
 
-In dweb, archiving is a process to formally announce some of the data will no longer be seeded by the majority. An `Block` has three states, by design. (state isn't and can't be a field in the block. It's the result of observation)
+In dweb, archiving is a process to formally announce some of the data will no longer be seeded by the majority. An `Block` or `Object` has two states, by design. (state isn't and can't be a field in the block or object. It's the result of observation)
 
-- **Living**, the block still being propagated on channel all the time.
-- **Archived**, the block is no longer a must to be downloaded, but is still meaningful.
-- **Dead**, the block is completely meaningless, for any peer.
+- **Living**, the data still being propagated on channel all the time.
+- **Archived**, the data is no longer a must to be downloaded
 
-This concept is proposed for it's a common requirement in sites. When we say `archive a block`, the block may be a RawBlock or an EncodedBlock. The meaning of archive can be archiving a *version* of an object, or a *base* of a version, or the entire *object*. The method of archiving also varies. We can archive the bases or the blocks or objects that depend on the bases, ie. *dependencies*. It's ambiguous.
+This concept is proposed for it's a common requirement in sites. When we say `archive a block`, the block may be a RawBlock or an EncodedBlock. The meaning of archive can be archiving a **version** of an object, or a **base** of a version, or the entire **object** inluding all its versions. The method of archiving also varies. We can archive the bases or the blocks or objects that depend on the bases, ie. **dependencies**. It's ambiguous, on **what is being archived**
 
 A random example of how complicated the relationship among blocks can be
 
 ![](./archive.drawio.svg)
 
+One of the concerns is when you archive something, there can be side effects. For instance, assuming you are going to archive a base, to make the base itself no longer a requirement of any other blocks, you have to traverse through the merkle forest, because a base doesn't have links to its dependencies. You may propose to create reverse links when receiving data, but the choice of archiving bases is wrong in the first place. Now think about a base can be anything that other things depend on, not only a concept only of delta-encoding. So, we don't archive the dependents, but the dependencies of some data. 
+
+Note that there are always one or more versions regarding an object, whether it is delta-encoded or not. 
+
+There are numerous forms of archiving:
+
+- Archive the historical versions. For `VER3`, it is `VER2` and `VER1`.
+- Archive an object, `OBJ B`
+- Archive a site, `Site 1`
+
+When archiving historical versions of an object, if it is delta-encoded, the bases are unlinked and the decoded delta data is stored in a new block. If it is a RawBlock, the old versions are simply marked as archived, which informs peers not to download it unless explicit configuration. Only the block being archived is replaced with a new block. Its dependencies or bases or old versions are untouched. The format of ArchivedDeltaBlock is as follows.
 
 ```typescript
-interface ArchivedDeltaBlock extends RawBlock {
+interface ArchivedDeltaBlock extends RawBlock { // To replace the original block
     bases: CID[];  // Only CIDs
+    originalBlock: CID;  // This block before archiving
     archiveTime: Date;
 }
 ```
+
+CIDs of the bases and the CID of original block are retained in the newly generated block, in case anyone wants to view the history. `originalBlock` differs from `bases`. An `originalBlock` can be a base, but is not equal to bases. `ArchivedDeltaBlock` is generated from the original block through a deterministic process, in order to get the same hash for every peer. The process of archive is better if happening at the same moment. Otherwise, in that period having both archived block and original block, the peers have to seed both blocks or there'll be only a half of peers serving one of the blocks, which reduces the connectivity significantly. After the block is archived, most peers turn to seed the archived the block, while internet archeologists continue to serve the historical versions.
+
+Of course, the succeeding versions of that archived version (if any) would also be re-created with new links to previous versions. There wouldn't be much cost, since every peer continues to serve the new blocks and response with the metadata on channels, the only change is that the blocks are replaced. 
+
+Metadata signs CIDs of objects of a site, and links to the old block. An approach is to allow other peers to add new links and sign metadata with their own privatekeys. This effectively causes spam. Any peer can spread false metadata and we have no solution. Now we introduce a new field in metadata, `blocks_archived`, the CIDs for the archived form of a block. The computation is simple, that is to put the data into a dummy archived block and get the CID. A version is immutable, and its bases are immutable. Therefore, the CID of the archived form of an arbitrary version is known.
+
+> Most compression algorithms are deterministic
+
+Objects can also be archived, and is straightforward. Exclude the undesired objects from site metadata, since an site metadata always include all its objects. The archived objects are automatically cleared via garbage collection, when it reaches the size limit.
+
+> We may need sub-metadatas for huge sites with millions of files signed by a single publickey.
+
+An extra process is needed to archive a site, that the owner needs to publish an `Archive Metadata` to let peers unseed that site.
 
 ## Denial of service
 
@@ -251,16 +279,16 @@ interface TrustRecord { // Encoded data on datablock
 
 > Although the paragraphs below mainly talk about DNS, the solutions also apply to user name.
 
-Existing naming solutions in decentralized networks include NameCoin, ENS. Like conventional centralized DNS, you have to buy names, but many names have already been kept by investors, who make money from nothing. Let's consider what the purpose of DNS is. It is definitely not about investing, and one shouldn't own large numbers of names. Obviously, DNS provides a convenience service, a mapping betwenn domain names and addresses *for its users*. Under the WoT, we have a solution, which gives the freedom back to users. 
+Existing naming solutions in decentralized networks include NameCoin, ENS. Like conventional centralized DNS, you have to buy names, but many names have already been kept by investors, who make money from nothing. Let's consider what the purpose of DNS is. It is definitely not about investing, and one shouldn't own large numbers of names. Obviously, DNS provides a convenience service, a mapping betwenn domain names and addresses *for its users*. Under the WoT, we have a solution, which gives the freedom back to users.
 
-WoT based DNS. 
+WoT based DNS.
 
 - Each user can publish name records for their sites via channel protocol.
 - Visitors resolve domain names based on WoT evaluation result, as follows
   - A user can choose one candidate from all competing sites regarding a domain name, and publish a preference record
   - When resolving a name, the name evaluated by WoT with highest score are selected.
 
-Unfortuately, we can't trust users completely. They might choose a phishing website for a domain name, or trust some dishonest people. However, trusting always exist. When you use a DApp registered on ENS, you implicitly trust ENS, which is an authority, although it is seemingly decentralized. Neither trusting users, nor authoriy only is applicable. A domain name may be resolved to different addresses in different parts of the network. This is actually inevitable, since if you allow multiple name resoltuion service, there is always inconsistency. In conclusion, WoT is natural and singular consensus is unnecessary and impractical. 
+Unfortuately, we can't trust users completely. They might choose a phishing website for a domain name, or trust some dishonest people. However, trusting always exist. When you use a DApp registered on ENS, you implicitly trust ENS, which is an authority, although it is seemingly decentralized. Neither trusting users, nor authoriy only is applicable. A domain name may be resolved to different addresses in different parts of the network. This is actually inevitable, since if you allow multiple name resoltuion service, there is always inconsistency. In conclusion, WoT is natural and singular consensus is unnecessary and impractical.
 
 In practice, we use sites as the main entities in name resolution system, called *name provider*. A name provider site can be a group of users, a blockchain, a static mapping table, or even only a script.
 
@@ -268,7 +296,7 @@ In practice, we use sites as the main entities in name resolution system, called
 
 > PoW is useless
 
-WoT based spam defense are applied on higher layers, block protocol and site content. When exchanging blocks, peers with higher trustworhiness are prioritized, which is increased by user or automatically set according to the behaviour of the peer. Normally, user specified trust records have much higher weight. On application layer, the content shown to the user is based on WoT and site itself. Since the user implicitly trust the site when visiting it, the site has the right to ajust the ratio and influence of WoT evaluation result. The actual problem is about protocols, where you can't rely on human decision. WoT prioritizes known and trusted peers, while there might be DoS attack consuming limited bandwidth remaining for new comers. 
+WoT based spam defense are applied on higher layers, block protocol and site content. When exchanging blocks, peers with higher trustworhiness are prioritized, which is increased by user or automatically set according to the behaviour of the peer. Normally, user specified trust records have much higher weight. On application layer, the content shown to the user is based on WoT and site itself. Since the user implicitly trust the site when visiting it, the site has the right to ajust the ratio and influence of WoT evaluation result. The actual problem is about protocols, where you can't rely on human decision. WoT prioritizes known and trusted peers, while there might be DoS attack consuming limited bandwidth remaining for new comers.
 
 One possible solution is to ask the requester peer for a captcha, or even user-specified challenge. If the peer passes the challenge, he gets the trust, less or more, from the challenger. In other words, he joined the Web of Trust, since the requester is also trusted by others. Depending on the difficulty of captcha and the circumstances of the challenger, or WoT, he may need to do one or multiple captchas.
 
@@ -278,13 +306,13 @@ Duo to the efficiency of possible DoS on it, this may happen only within WoT. To
 
 ## Time guarantee
 
-This section describes a way to achieve a As Sound As Possible timestamp (ASAP) for site content. A site is firstly signed on its content, blocks. When the signer decides to publish the site, he signs a metadata that links to the blocks of the site, and propagate the metadata via channel protocols. Typically, channel protocols need peers to forwardt metadata. We call the peers that get the metadata from the site signer directly, the first layer, and the peers that get the metadata from these peers the second layer. In a channel protocol that doesn't require metadata forwarding, there are always offline peers which require forwading. Note that the metadata being forwarded is always that metadata signed by the original signer. Denote the time the author signs the blocks with `T(block)`, the timestamp he writes in the metadata as `T(meta)`, and the time the first layer receieves the metadata as `T(1)`, and the second layer as `T(2)`. Denote the time you receives the metadata as `T(you)` and the now as `Now`
+This section describes a way to achieve an As Sound As Possible timestamp (ASAP) via an As Soon As Possible false timestamp rejection, for site content. A site is firstly signed on its content, blocks. When the signer decides to publish the site, he signs a metadata that links to the blocks of the site, and propagate the metadata via channel protocols. Typically, channel protocols need peers to forward the metadata. We call the peers that get the metadata from the site signer directly, the first layer, and the peers that get the metadata from these peers the second layer. In a channel protocol that doesn't require metadata forwarding, there are always offline peers which require forwading. Note that the metadata being forwarded is always that metadata signed by the original signer. Denote the time the author signs the blocks with `T(block)`, the timestamp he writes in the metadata as `T(meta)`, and the time the first layer receieves the metadata as `T(1)`, and the second layer as `T(2)`. Denote the time you receives the metadata as `T(you)` and the now as `Now`
 
-When the metadata is published, if the timestamp is fake, by protocol, all well-behaved peers will reject and drop the false metadata. In case any peer in the first layer wrongly propagates the metadata into the second layer, the first layer fails and `Now` has increased. The peers can't trust other peers, so they can only trust their own clocks. Assume there are `N` *malicious* nodes evenly distributed, so the probability to connect to a *malicious* node is `N/totalNodes`. Denote it as `P`. Metadata without a timestamp field will be instantly dropped, probability `1-P`. The first layer fails to reject false metadata, `P`, and the second layer `P^2`, and the layer n `P^n`. On layer n , the probability that layer drops false metadata is `1 - P^n`. For instance, P is `0.1`, on the layer two the probability of rejecting false timestamps is already `99%`, so that all timestamps pass through layers satisfy condition `T(meta) < T(2)` , at least. It is `T(2)`, but not `T(1)`. See paragraphs below.
+When the metadata is published, if the timestamp is fake, by protocol, all well-behaved peers will reject and drop the false metadata. In case any peer in the first layer wrongly propagates the metadata into the second layer, the first layer fails and `Now` has increased. The peers can't trust other peers, so they can only trust their own clocks. Assume there are `N` *malicious* nodes evenly distributed and the connected peers are randomly selected, so the probability to connect to a *malicious* node is `N/totalNodes`. Denote it as `P`. Metadata without a timestamp field will be instantly dropped, probability `1-P`. The first layer fails to reject false metadata, `P`, and the second layer `P²`, and the layer n `Pⁿ`. On layer n , the probability that layer drops false metadata is `1 - Pⁿ`. For instance, P is `0.1`, on the layer two the probability of rejecting false timestamps is already `99%`, so that all timestamps pass through layers satisfy condition `T(meta) < T(2)` , at least. It is `T(2)`, but not `T(1)`. See paragraphs below.
 
 Why a timestamp in metadata is necessary ? As we know, each layer verifies the timestamp before propagating to another layer, which prevents false information from spreading. If there is timestamp built in metadata, validating timestamp takes less then a second, and we can get the result, to propagate or not. Block protocols are always slow, however. Let the time to look up timestamp inside the block be `Tx`. In the first layer, the condition to check timestamp *inevitably* becomes `T(meta) < Tx + T(1)`, rather than `T(meta) < T(1)`. Intuitively, `Tx` can range from 30 seconds to five minutes. `Tx` has been added to `T(1)` in the condition, indicating we gave the metadata more *tolerance*, because the metadata can have a false timestamp `T(1) < T(meta) < Tx + T(1)` which is valid in this situation. You may say we have intended tolerance for the local time can't be accurate, but this tolerance accumulates. In the layer 2, for `T(2)` is approximately `Tx + T(1)`, it is `T(meta) < 2Tx + T(1)`. Besides this cost, every peer that propagates the metadata has to query DHT and download the block, which is very expensive and vulnerable to DoS attack. Through this process, the timestamp in the metadata can be thought as valid. When you get the timestamp and download the blocks, you check the blocks against condition `T(block) < T(meta)`, because `T(meta) < T(1)` is always true.
 
-The purpose of checking `T(meta)` is to enforce the author to include a timestamp which statisfies `T < T(1)`(approximately). A timestamp is allowed to become valid although It was invalid. Suppose we have a timestamp `Now + 5 days`, it is invalid within following 5 days and is immediately dropped and not propagated in case anyone tries to publish it. After 5 days, the metadata can be published, so the publish time can be considered correct, though it was generated five days ago. The validation before propagation prevents any wrong publish time. In many cases, the scenario that the publish time of something is unclear, and something inside it suddenly becomes valid after a certain period, is undesired. 
+The purpose of checking `T(meta)` is to enforce the author to include a timestamp which statisfies `T < T(1)`(approximately). A timestamp is allowed to become valid although It was invalid. Suppose we have a timestamp `Now + 5 days`, it is invalid within following 5 days and is immediately dropped and not propagated in case anyone tries to publish it. After 5 days, the metadata can be published, so the publish time can be considered correct, though it was generated five days ago. The validation before propagation prevents any wrong publish time. In many cases, the scenario that the publish time of something is unclear, and something inside it suddenly becomes valid after a certain period, is undesired.
 
 Will you get false timestamp ? It depends on your 'location' in the network, and whether you are the first time visiting a site. For `backward` false timestamp, any such attempt is prohibited by corresponding site validation script, as long as you have the original content that contains the 'true' timestamp (the first timestamp is considered true, see below). It's impossible to do time guarantee on site content, because this requires to download the new content. Regarding 'future' false timestamp, it is already suppressed by `T(block) < T(meta) < T(1)`. If you are next to the false timestamp sender, you can always detect and drop that metadata. It is still possible to have a false timestamp that `T(1) < T(meta) < T(you)`, when the delay on layers are significant, since `Now` constantly increases. Let's call this `delay timestamp`. The more layers, the more delay, hence more unwanted tolerance. Except for `delay timestamp`, the probability to recognize false future timestamp as valid is 0.
 
@@ -294,6 +322,6 @@ A site that cares about the correctness of timestamps can use metadataScript to 
 
 What if I am the new comer of a site ? This is the only possible scenario where you might get a false `backward` timestamp. You already have the awareness of `Now` in the condition of future timestamp validation; however, you don't have the knowledge of the original timestamps in a site. As a result, you won't get a false future timestamp. If the blocks are complete, ie. not archived or pruned, the data script can automatically detect any attempt to modify existing timestamps. The probability of getting false timestamp as a new comer is `P`, assuming all malicious nodes are united to give you false timestamps of that site. Possible solutions include requesting site metadata from multiple peers, and compare to check if they are identical. Download the history if the condition fails. As the N malicious nodes are distributed evenly, the probability reduces if we request from more nodes. For `k` times of metadata requests or answers, the probability of getting false timestamp is `P^k`. In fact, we already request from multiple peers, because there are always peers answering requests at the same time.
 
-Sybil attack ? There can't be sybil attack, since creating massive identities don't help. This is not a reputation system. If there are enough layers, false timestamps eventually vanish. If not, the better, everyone can validate the timestamps on their own, as they know $Now$ and original timestamps.
+Sybil attack ? There can't be sybil attack, since creating massive identities don't help. This is not a reputation system. If there are enough layers, false timestamps eventually vanish. If not, the better, everyone can validate the timestamps on their own, as they know `Now` and original timestamps.
 
 In conclusion, both `backward` and `future` timestamps are banned, in time sensitive sites which limit the metadata to be propagated only among peers who have downloaded that site.
