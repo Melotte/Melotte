@@ -1,4 +1,4 @@
-# Planet Protocol
+# Melotte Protocol
 
 Planet is a decentralized application platform and framework, based on libp2p. In contrast to recent novel decentralized networks, Planet focuses on the original purpose of P2P, to bring privacy and anonymity. As a result, to maximize the censorship-resistence achieved by decentralization, blockchains are not built-in, yet as applications.
 
@@ -54,6 +54,8 @@ Applications often use these two protocols together:
 - Instant messaging. Messages arrive in channels first. In case the receiver isn't online, messages are also stored temporarily by every peer on this site until the receiver downloads them or the messages die.
 
 
+Both *IPFS blocks and objects* are a part of *block protocol*.
+
 ## Block protocol
 
 Block protocol uses _data blocks_ as packets. Data blocks are used to transfer _objects_, which is a collective term for all raw data.
@@ -77,14 +79,12 @@ For instance, the following formats could be or are supported:
 
 Additionally, the formats can be stacked on top of each other. Notice that order matters: i.e. first delta-encoding and then compressing data is more efficient than first compressing it and then delta-encoding. The first way is known as stacking compression *on top of* delta-encoding, the second way is stacking delta-encoding *on top of* compression.
 
-The CID that is announced on the DHT is a hash of the actual non-encoded data, not the hash of a data block. This allows changing the base blocks, for example, when old base blocks die, more efficient bases are found or a more efficient compression algorithm is supported.
-
-> `Die` means being archived
+The CID that is announced on the DHT is a hash of the actual non-encoded data, ie. *objects*, not the hash of a data block. 
 
 Data blocks can be sent to other peers in the following two ways:
 
 - *Per-connection*, or *dynamic block* mode. This allows using a different codec or different data for each peer. This method may be slow but it is way better for network connectivity: a peer which doesn't support a new codec may still receive new content, while others peers which support it will receive it compressed even better. This method, however, requires developing a new protocol.
-- *Compatibility*, or *Static block* mode. In this mode, the same data block is used for all peers who request a specific object. This allows using the Bitswap protocol to transfer data blocks and allows using old IPFS storage. However, static block protocol is inefficient in some cases. When the compression methods are updated, the majority serve the content using new codec, so the blocks of old codec are rarely served, splitting the network, which decreases overall performance. Besides compatibility and consistency, static method is rigid, for it can't encode the data dynamically based on the circumstances of the receiver.
+- *Static block* mode. In this mode, the same data block is used for all peers who request a specific object. This allows using the Bitswap protocol to transfer data blocks. However, static block protocol is inefficient in some cases. When the compression methods are updated, the majority serve the content using new codec, so the blocks of old codec are rarely served, splitting the network, which decreases overall performance. Besides compatibility and consistency, static method is rigid, for it can't encode the data dynamically based on the circumstances of the receiver.
 
 A data block has a slightly different meaning for these two modes. In static block mode, a data block is effectively a valid IPFS block on its own. In dynamic block mode, a data block is temporary and abstract, and it doesn't have to be stored directly in the filesystem; however this caching may still be done for optimization.
 
@@ -100,7 +100,7 @@ A simple hotfix for this problem is that the object signer should also sign the 
 Another solution is proposed instead. It is well-known that most if not all modern compression algorithms, and thus codecs, allow getting unpacked data length quickly. This allows checking if data length is not greater than the maximum allowed length before actually unpacking content.
 
 ```typescript
-interface RawBlock { // Multicodec prefixed
+interface RawBlock { // Multicodec prefixed, compatible with IPFS
 }
 
 interface EncodedBlock { // Multicodec prefixed
@@ -163,30 +163,39 @@ interface RealTimeData extends ChannelData {  // Example: Instant messaging
 }
 ```
 
+## Site
+
+![](./site.drawio.svg)
+
+Publishing new versions of a site or its user content can only take place on channels, because you can't put a link to the new version in the block of previous version. Given a genesis management block of a site, it's impossible to get its sucessors without channel protocol. Another aspect is user content, which is basically aggregating based on some rules, ie. data script. 
+
+In addition to graph, when the author signs and publishes the metadata of his blocks, other peers listening on the channel *cache* the received metadata in the repo, as if it is a block, and *re-propagate* the metadata when other peers request it. For each version of an `object`, the signer generates a new metada  - Object
+    - Versions
+      - Bases
+        - Blocksta. The dafult behaviour (well-behaving) of a peer is to re-propagate the *newest* version of an object, since new blocks normally link to old blocks. To identify which block you got is the successor of an arbitrary block, the successor block (or its metadata) should contain a link to its previous version, whether it's a RawBlock or an EncodededBlock. Melotte maintains a key-value store to track the history of each object, which uses the CID of the first block of the object as key, the last CID of the block of the object as value. Each block of an object is called a commit or a version, which can have bases if it is a EncodedBlock. 
+
+The hierarchy looks like this
+
+- Site
+  - Object
+    - Versions
+      - Bases
+        - Blocks
 
 ### Archiving and pruning
 
-> `Archive` is to archive objects. `Prune` is about delta-encoding, on block level.
+In dweb, archiving is a process to formally announce some of the data will no longer be seeded by the majority. An `Block` has three states, by design. (state isn't and can't be a field in the block. It's the result of observation)
 
-In dweb, archiving is a process to formally announce some of the data will no longer be seeded by the majority. Assuming no delta-encoding is used, archiving is to *unpin* some of the files or data in a site, and when the storage exceeds the maximum size limit configured by the peer, the files are deleted on that peer.
+- **Living**, the block still being propagated on channel all the time.
+- **Archived**, the block is no longer a must to be downloaded, but is still meaningful.
+- **Dead**, the block is completely meaningless, for any peer.
 
-> Delta-encoding and delta-codec are interchangeably used.
+This concept is proposed for it's a common requirement in sites. When we say `archive a block`, the block may be a RawBlock or an EncodedBlock. The meaning of archive can be archiving a *version* of an object, or a *base* of a version, or the entire *object*. The method of archiving also varies. We can archive the bases or the blocks or objects that depend on the bases, ie. *dependencies*. It's ambiguous.
 
-Consider the following graph, which consists of blocks, not objects, and arrows represent block--base connection:
+A random example of how complicated the relationship among blocks can be
 
-```
-          H <- I
-          |
-          v
-A <- C <- D <- F <- G
-     |    |
-     v    v
-     B    E
-```
+![](./archive.drawio.svg)
 
-Obviously, A and B are not encoded. C uses A and B as bases, D uses C and E as bases, and so on.
-
-When the history of C is pruned, the data of A and B is merged into C, and A and B remains unchanged. Of course, we can't change A and B, because they are immutable. The process of merging produces a completely new block. The references of A and B still persist in C in case anyone wants to get its pruned history. If we decided to archive D, only C and E would be stored as references.
 
 ```typescript
 interface ArchivedDeltaBlock extends RawBlock {
@@ -269,7 +278,7 @@ Duo to the efficiency of possible DoS on it, this may happen only within WoT. To
 
 ## Time guarantee
 
-This section describes a way to achieve a As Sound As Possible timestamp (ASAP) for site content. A site is firstly signed on its content, blocks. When the signer decides to publish the site, he signs a metadata that links to the blocks of the site, and propagate the metadata via channel protocols. Typically, channel protocols need peers to forwardt metadata. We call the peers that get the metadata from the site signer directly, the first layer, and the peers that get the metadata from these peers the second layer. In a channel protocol that doesn't require metadata forwarding, there are always offline peers which require forwading. Note that the metadata being forwarded is always that metadata signed by the original signer. Denote the time the author signs the blocks with $T(block)$, the timestamp he writes in the metadata as `T(meta)`, and the time the first layer receieves the metadata as `T(1)`, and the second layer as `T(2)`. Denote the time you receives the metadata as `T(you)` and the now as `Now`
+This section describes a way to achieve a As Sound As Possible timestamp (ASAP) for site content. A site is firstly signed on its content, blocks. When the signer decides to publish the site, he signs a metadata that links to the blocks of the site, and propagate the metadata via channel protocols. Typically, channel protocols need peers to forwardt metadata. We call the peers that get the metadata from the site signer directly, the first layer, and the peers that get the metadata from these peers the second layer. In a channel protocol that doesn't require metadata forwarding, there are always offline peers which require forwading. Note that the metadata being forwarded is always that metadata signed by the original signer. Denote the time the author signs the blocks with `T(block)`, the timestamp he writes in the metadata as `T(meta)`, and the time the first layer receieves the metadata as `T(1)`, and the second layer as `T(2)`. Denote the time you receives the metadata as `T(you)` and the now as `Now`
 
 When the metadata is published, if the timestamp is fake, by protocol, all well-behaved peers will reject and drop the false metadata. In case any peer in the first layer wrongly propagates the metadata into the second layer, the first layer fails and `Now` has increased. The peers can't trust other peers, so they can only trust their own clocks. Assume there are `N` *malicious* nodes evenly distributed, so the probability to connect to a *malicious* node is `N/totalNodes`. Denote it as `P`. Metadata without a timestamp field will be instantly dropped, probability `1-P`. The first layer fails to reject false metadata, `P`, and the second layer `P^2`, and the layer n `P^n`. On layer n , the probability that layer drops false metadata is `1 - P^n`. For instance, P is `0.1`, on the layer two the probability of rejecting false timestamps is already `99%`, so that all timestamps pass through layers satisfy condition `T(meta) < T(2)` , at least. It is `T(2)`, but not `T(1)`. See paragraphs below.
 
@@ -283,7 +292,7 @@ Can we prevent `backward` timestamps ? Yes, we can. We have multiple options, th
 
 A site that cares about the correctness of timestamps can use metadataScript to validate timestamps wtih one more condition against backward false timestamps before propagating metadata (on object level not block). This is the solution to `backward` timestamp. For backward timestamp, only peers with corresponding site downloaded and know the original timestamp can validate, unlike future timestamp validation where every peer knows the condition to validate, which is `T(meta) < Now`. Fortunately, the site propagation protocol has a channel for each site respectively. Only the content of that site can be published on that channel, so false timestamps won't be mistakenly propagated in any other channel which doesn't accept those timestamps at all. Notice that the timestamp in the metadata is still necessary, because the block referenced in metadata is always undownloaded at the moment you receive that metadata; but in backward timestamp validation, you already have the site content downloaded since you have subscribed to that channel. Also, there may be peers who don't have site downloaded, as new comers. The solution is simple, in that time-sensitive site, disallow the new comers to propagate metadata, although this may reduce connectivity. The mechanism to validate backward timestamp is basically the same to future timestamp. Denote the target timestamp is `T(back)`, and the 'correct' timestamp is `T(prev)`. We use condition `T(prev) == T(back)`, as published timestamps can't be changed. The probability of each layer of successful rejection is the same as future timestamp.
 
-What if I am the new comer of a site ? This is the only possible scenario where you might get a false `backward` timestamp. You already have the awareness of `Now` in the condition of future timestamp validation; however, you don't have the knowledge of the original timestamps in a site. As a result, you won't get a false future timestamp. If the blocks are complete, ie. not archived or pruned, the data script can automatically detect any attempt to modify existing timestamps. The probability of getting false timestamp as a new comer is $P$, assuming all malicious nodes are united to give you false timestamps of that site. Possible solutions include requesting site metadata from multiple peers, and compare to check if they are identical. Download the history if the condition fails. As the N malicious nodes are distributed evenly, the probability reduces if we request from more nodes. For $k$ times of metadata requests or answers, the probability of getting false timestamp is $P^k$. In fact, we already request from multiple peers, because there are always peers answering requests at the same time.
+What if I am the new comer of a site ? This is the only possible scenario where you might get a false `backward` timestamp. You already have the awareness of `Now` in the condition of future timestamp validation; however, you don't have the knowledge of the original timestamps in a site. As a result, you won't get a false future timestamp. If the blocks are complete, ie. not archived or pruned, the data script can automatically detect any attempt to modify existing timestamps. The probability of getting false timestamp as a new comer is `P`, assuming all malicious nodes are united to give you false timestamps of that site. Possible solutions include requesting site metadata from multiple peers, and compare to check if they are identical. Download the history if the condition fails. As the N malicious nodes are distributed evenly, the probability reduces if we request from more nodes. For `k` times of metadata requests or answers, the probability of getting false timestamp is `P^k`. In fact, we already request from multiple peers, because there are always peers answering requests at the same time.
 
 Sybil attack ? There can't be sybil attack, since creating massive identities don't help. This is not a reputation system. If there are enough layers, false timestamps eventually vanish. If not, the better, everyone can validate the timestamps on their own, as they know $Now$ and original timestamps.
 

@@ -2,7 +2,6 @@
 
 A Planet site is a DAG of *commits* which contain site data and a *management chain* which controls permissions.
 
-
 ## Objects
 
 ### Commit
