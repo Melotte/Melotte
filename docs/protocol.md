@@ -1,6 +1,6 @@
 # Melotte Protocol
 
-Planet is a decentralized application platform and framework, based on libp2p. In contrast to recent novel decentralized networks, Planet focuses on the original purpose of P2P, to bring privacy and anonymity. As a result, to maximize the censorship-resistence achieved by decentralization, blockchains are not built-in, yet as applications.
+Melotte is a decentralized application platform and framework, based on libp2p. In contrast to recent novel decentralized networks, Planet focuses on the original purpose of P2P, to bring privacy and anonymity.
 
 An overview of the whole protocol stack (bottom-up):
 
@@ -13,15 +13,17 @@ An overview of the whole protocol stack (bottom-up):
   - Planet bitswap (planned)
 - Channel protocols
   - Pubsub (gossipsub/floodsub)
-  - Planet protocol (custom protocol over libp2p)
+- Propagtion protocols
+  - Channel propagtion
+  - DHT
 - Graph data structure
   - Management chain
   - Data graph
 - Backend procedure
   - Web of trust
-  - Wasm block encryption script
-  - eWasm metadata validation script
-  - eWasm graph validation
+    - Naming
+    - Filter
+  - eWasm validation script
   - Wasm application backend
 - Interface server
 - Application Frontend
@@ -54,6 +56,8 @@ Applications often use these two protocols together:
 
 Both *IPFS blocks and objects* are a part of *block protocol*.
 
+> The abstraction of block and channel protocols are based on existing implementations. Channel is only one of the propagtion protocols.
+
 ## Block protocol
 
 Block protocol uses _data blocks_ as packets. Data blocks are used to transfer _objects_, which is a collective term for all raw data.
@@ -61,6 +65,8 @@ Block protocol uses _data blocks_ as packets. Data blocks are used to transfer _
 > The reference that a block uses for delta-codec is called `base`
 
 Data blocks contain object content in a compressed and encoded format. Say, instead of sending raw version content, one would encode the data, put it into a data block and send the block.
+
+> Data block, also known as, block.
 
 For instance, the following formats could be or are supported:
 
@@ -98,10 +104,14 @@ A simple hotfix for this problem is that the object signer should also sign the 
 Another solution is proposed instead. It is well-known that most if not all modern compression algorithms, and thus codecs, allow getting unpacked data length quickly. This allows checking if data length is not greater than the maximum allowed length before actually unpacking content.
 
 ```typescript
+interface VersionedBlock {
+    prevCID: CID[];
+}
+
 interface RawBlock { // Multicodec prefixed, compatible with IPFS
 }
 
-interface EncodedBlock { // Multicodec prefixed
+interface EncodedBlock extends VersionedBlock { // Multicodec prefixed
     codec: Codec;
     encodedData: Buffer;
 }
@@ -141,7 +151,7 @@ interface DeltaEncodedData {
 
 The channel protocol are used for two purposes:
 
-- _Metadata_. When a site is updated, i.e. a new commit is published, the channel protocols are used to send new version CID to site seeders.
+- _Metadata_. When a site is updated, i.e. a new version is published, the channel protocols are used to send new version CID to site seeders.
 - _Realtime data_. This includes chat messages, etc.
 
 Each `ChannelData` MUST be signed with a publickey.
@@ -154,10 +164,11 @@ interface ChannelData {
 interface Metadata extends ChannelData { // Metadata for the site, or the content of a user
     timestamp: Date; // See time guarantee below
     blocks: CID[];
-    blocks_archived: CID[];
+    blocksArchived: CID[];
     extraData: Buffer;  // Urgent data, size limited
     prevMetadata?: CID; // CID of the previous metadata
     // This actually creates a metadata chain, but normally it is not used.
+    subMetadata?: CID[];
 }
 interface RealTimeData extends ChannelData {  // Example: Instant messaging
     data: Buffer;
@@ -168,12 +179,12 @@ interface RealTimeData extends ChannelData {  // Example: Instant messaging
 
 ![](./site.drawio.svg)
 
-Publishing new versions of a site or its user content can only take place on channels, because you can't put a link pointing to the new version in the block of the previous version. Given a genesis management block of a site, it's impossible to get its sucessors without channel protocol. Another aspect is user content, which is basically aggregating based on some rules, ie. data script. In addition to the graph, when the author signs and publishes the metadata of his blocks, other peers listening on the channel *cache* the received metadata in the repo, as if they are blocks, and *re-propagate* the metadata when other peers request it. For each version of an `object`, the signer generates a new metadata. The dafult behaviour (well-behaving) of a peer is to re-propagate the *newest* version of an object, since new blocks normally link to old blocks. To identify which block you got is the successor of an arbitrary block, the successor block (or its metadata) should contain a link to its previous version, whether it's a RawBlock or an EncodededBlock. Melotte maintains a key-value store to track the history of each object, which uses the CID of the first block of the object as key, the last CID of the block of the object as value. Each block of an object is called a commit or a version, which can have bases if it is a EncodedBlock.
+Publishing new versions of a site or its user content can only take place on channels, because you can't put a link pointing to the new version in the block of the previous version. Given a genesis management block of a site, it's impossible to get its sucessors without channel protocol. Another aspect is user/site content, which is basically aggregating based on some rules, ie. data script. In addition to the graph, when the author signs and publishes the metadata of his blocks, other peers listening on the channel *cache* the received metadata in the repo, as if they are blocks, and *re-propagate* the metadata when other peers request it. For each version of an `object`, the signer generates a new metadata. The dafult behaviour (well-behaving) of a peer is to re-propagate the *newest* version of an object, since new blocks normally link to old blocks. To identify which block you got is the successor of an arbitrary block, the successor block (or its metadata) should contain a link to its previous version. key-value store to track the history of each object, which uses the CID of the first block of the object as key, the last CID of the block of the object as value. Each block of an object is called a commit or a version, which can have bases if it is a EncodedBlock.
 
-As shown in the picture, a user publishes a request on channel, and other peers response with all related data, which is called *Propagation Protocol*. This doesn't guarantee the user gets all data of a site, including site data and user data, in the network. Furthermore, it is even not possible in theory, because there can peers hold data privately and never publishes its content. The user can always get the newest versions and considerably complete data, as long as at least a single peer publishes the newest or missing data. For the content owner, publish failure is more often than this, due to network issues, such as censorship. To mitigate spam, a time interval disallowing duplicating request is introduced, which is also known as *request window*. For each request window, only one request is allowed, and thus no duplicating response would be sent. The size of request window determines how fast we can download site, from scratch. 
+As shown in the picture, a user publishes a request on channel, and other peers response with all related data. This doesn't guarantee the user gets all data of a site, including site data and user data, in the network. Furthermore, it is even not possible in theory, because there can peers hold data privately and never publishes its content. The user can always get the newest versions and considerably complete data, as long as at least a single peer publishes the newest or missing data. For the content owner, publish failure is more often than this, due to network issues, such as censorship. To mitigate spam, a time interval disallowing duplicating request is introduced, which is also known as *request window*. For each request window, only one request is allowed, and thus no duplicating response would be sent. The size of request window determines how fast we can download a site from scratch.
 Once there has been a single peer responded the request, other peers won't send the same metadata again. At most, in one request window, there can be one request, and metadata of site and user data.
 
-An improvement is to put site metadata on DHT using the publickey of the site as the key. Now only user data requires propagation protocol.
+An improvement is to put metadata on DHT using the publickey of the site as the key and the site metadata as the value. More precisely, the publickey of the genesis block and when the management chain is downloaded, the publickeys of all other known signers. Each publickey maps to the latest metadata signed by it. You still can't use DHT to replace channel protocol, because there's no way to notify peers that something has updated. So, IPNS uses a [polling](https://github.com/ipfs/specs/blob/master/IPNS.md) method. This way is only useful at the first time visiting a site. After the first visit, we'll use channel instead. That'll be twice delay if we use both DHT and channel. 
 
 The hierarchy looks like this
 
@@ -183,7 +194,17 @@ The hierarchy looks like this
       - Bases
         - Blocks
 
-> Don't confuse melotte block/object and ipfs block/object. 
+> Branches are separate versions
+
+> Don't confuse melotte block/object and ipfs block/object.
+
+![](./dag.drawio.svg)
+
+For example, this is a unixfs. `OBJ1` is a directory, with files, `OBJ2` and `OBj3`. In `RAW`, we use `ipfs-unixfs` to store the files directly in ipfs-dag, which is compatible with ipfs. `VER1` and `VER2` are delta-encoded, and is not compatible with ipfs. The actual data is not directly accessible in dag, and invisible to IPFS nodes, but is stored as the data of EncodedData.
+
+> RawBlock means to be compatile with IPFS. An EncodedBlock can be raw, but is still versioned and not compatible with IPFS.
+
+You can also treat each folder as an object. That depends on your need. The benefit of tracking files individually is that you can have different permission settings for each file. If the whole folder is treated as an object, any modification to any file inside produces a new version. In this case, to set different permissions, the site has to do something manually.
 
 ### Archiving and pruning
 
@@ -198,9 +219,11 @@ A random example of how complicated the relationship among blocks can be
 
 ![](./archive.drawio.svg)
 
-One of the concerns is when you archive something, there can be side effects. For instance, assuming you are going to archive a base, to make the base itself no longer a requirement of any other blocks, you have to traverse through the merkle forest, because a base doesn't have links to its dependencies. You may propose to create reverse links when receiving data, but the choice of archiving bases is wrong in the first place. Now think about a base can be anything that other things depend on, not only a concept only of delta-encoding. So, we don't archive the dependents, but the dependencies of some data. 
+> We added a new dimension to IPLD, time.
 
-Note that there are always one or more versions regarding an object, whether it is delta-encoded or not. 
+One of the concerns is when you archive something, there can be side effects. For instance, assuming you are going to archive a base, to make the base itself no longer a requirement of any other blocks, you have to traverse through the merkle forest, because a base doesn't have links to its dependencies. You may propose to create reverse links when receiving data, but the choice of archiving bases is wrong in the first place. Now think about a base can be anything that other things depend on, not only a concept only of delta-encoding. So, we don't archive the dependents, but the dependencies of some data.
+
+Note that there are always one or more versions regarding an object, whether it is delta-encoded or not.
 
 There are numerous forms of archiving:
 
@@ -208,10 +231,10 @@ There are numerous forms of archiving:
 - Archive an object, `OBJ B`
 - Archive a site, `Site 1`
 
-When archiving historical versions of an object, if it is delta-encoded, the bases are unlinked and the decoded delta data is stored in a new block. If it is a RawBlock, the old versions are simply marked as archived, which informs peers not to download it unless explicit configuration. Only the block being archived is replaced with a new block. Its dependencies or bases or old versions are untouched. The format of ArchivedDeltaBlock is as follows.
+When archiving historical versions of an object, if it is delta-encoded, the bases are unlinked and the decoded delta data is stored in a new block. If it is a *raw block* (not RawBlock), the old versions are simply marked as archived, which informs peers not to download it unless explicit configuration. Only the block being archived is replaced with a new block. Its dependencies or bases or old versions are untouched. The format of ArchivedDeltaBlock is as follows.
 
 ```typescript
-interface ArchivedDeltaBlock extends RawBlock { // To replace the original block
+interface ArchivedDeltaBlock { // To replace the original block
     bases: CID[];  // Only CIDs
     originalBlock: CID;  // This block before archiving
     archiveTime: Date;
@@ -220,9 +243,9 @@ interface ArchivedDeltaBlock extends RawBlock { // To replace the original block
 
 CIDs of the bases and the CID of original block are retained in the newly generated block, in case anyone wants to view the history. `originalBlock` differs from `bases`. An `originalBlock` can be a base, but is not equal to bases. `ArchivedDeltaBlock` is generated from the original block through a deterministic process, in order to get the same hash for every peer. The process of archive is better if happening at the same moment. Otherwise, in that period having both archived block and original block, the peers have to seed both blocks or there'll be only a half of peers serving one of the blocks, which reduces the connectivity significantly. After the block is archived, most peers turn to seed the archived the block, while internet archeologists continue to serve the historical versions.
 
-Of course, the succeeding versions of that archived version (if any) would also be re-created with new links to previous versions. There wouldn't be much cost, since every peer continues to serve the new blocks and response with the metadata on channels, the only change is that the blocks are replaced. 
+Of course, the succeeding versions of that archived version (if any) would also be re-created with new links to previous versions. There wouldn't be much cost, since every peer continues to serve the new blocks and response with the metadata on channels, the only change is that the blocks are replaced.
 
-Metadata signs CIDs of objects of a site, and links to the old block. An approach is to allow other peers to add new links and sign metadata with their own privatekeys. This effectively causes spam. Any peer can spread false metadata and we have no solution. Now we introduce a new field in metadata, `blocks_archived`, the CIDs for the archived form of a block. The computation is simple, that is to put the data into a dummy archived block and get the CID. A version is immutable, and its bases are immutable. Therefore, the CID of the archived form of an arbitrary version is known.
+Metadata signs CIDs of objects of a site, and links to the old block. An approach is to allow other peers to add new links and sign metadata with their own privatekeys. This effectively causes spam. Any peer can spread false metadata and we have no solution. Now we introduce a new field in metadata, `blocksArchived`, the CIDs for the archived form of a block. The computation is simple, that is to put the data into a dummy archived block and get the CID. A version is immutable, and its bases are immutable. Therefore, the CID of the archived form of an arbitrary version is known.
 
 > Most compression algorithms are deterministic
 
@@ -231,6 +254,28 @@ Objects can also be archived, and is straightforward. Exclude the undesired obje
 > We may need sub-metadatas for huge sites with millions of files signed by a single publickey.
 
 An extra process is needed to archive a site, that the owner needs to publish an `Archive Metadata` to let peers unseed that site.
+
+## Metadata
+
+Metadata is the connection between blocks and channels, which includes the basic information of the signer and some CIDs of the site. It tracks the current version of every object. The question is how much data is necessary to put into metadata, but not a reference in metadata. Block protocol is optimized for blocks, although DHT query might slow at first. Channel has lower latency, for small packets. It is considered faster, when the cost of DHT is more significant than the benefit of de-duplication.
+
+> DHT takes up to 5 minutes in China.
+
+If we use block protocol as much as possible, replacing metadata with the CID of it, we have to query DHT for metadata before everything. Obviously, we can't, as explained below. Metadata must contain authentication, identity and timestamp information. Another extreme case is to put everything into channel. That makes sense only if the data is single-use and is hard to do delta-encoding, such as random bytes. The previous metadata field isn't needed, in fact. A single metadata contains all the metadata information for its corresponding site. It is never delta-encoded. That field is used only for those who is willing to seed archived *objects*.
+
+What if there is a giant site with one million objects ? Suppose we use SHA-256, and it is `31250` KiB, about `30` MiB, every metadata. According to [ipfs-unixfs](https://github.com/ipfs/js-ipfs-unixfs/tree/master/packages/ipfs-unixfs-importer), the minimum reasonable block size is `0.25MiB`, which is about `8192` hashes. Any metadata with the number of hashes above it is inefficient, in general. For such a giant site, we use field `subMetadata`, and each layer can contain up to 8192 block or subMetadata CIDs. In this example, it uses two layers, which has 8192 metadata blocks in the first layer, and each metadata block has 122 CIDs of objects.
+
+> 8192 is not the actual number. The format has changed.
+
+The download process is handled by data script, which decides when the metadata is received, what blocks to download, when to download, and the depth, the priority and so on. `Extradata` can store information for such conditional download. "Optional objects" is not managed by the network, but the script. Because 'optional' is ambiguous. Does 'optional' mean to download when needed ? However, what time it is needed, when requeting, or before requesting to improve user experience ? Those dirty tasks are handled by the data script. Of course, we provide a default script.
+
+Metadata is always about a user, whether it belongs to site content or user content. There's no strict separation of site content and user content. The data script determines what is considered site content. Blocks from each author of the site form objects of the site. An object can have versions from multiple authors.
+
+## Branching
+
+Version-object structure is similar to git, but not exactly. We aim to offer versioning feature while keeping maximum flexibility. A default data script is provided to deal with branching issue.
+
+There is no concept of merging in a decentralized network. Both branches are kept. A site can either keep both branches or select one of them. That's the responsibility of the site, not us. All versions are kept for data script.
 
 ## Denial of service
 
@@ -302,7 +347,7 @@ One possible solution is to ask the requester peer for a captcha, or even user-s
 
 ### Distributed searching
 
-Duo to the efficiency of possible DoS on it, this may happen only within WoT. To search on a site, or all sites, the requester sends a search request on channel, and collects and sorts the search results sent by other peers.
+Due to the efficiency of possible DoS on it, this may happen only within WoT. To search on a site, or all sites, the requester sends a search request on channel, and collects and sorts the search results sent by other peers.
 
 ## Time guarantee
 
