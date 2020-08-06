@@ -14,11 +14,11 @@ An overview of the whole protocol stack (bottom-up):
 - Channel protocols
   - Pubsub (gossipsub/floodsub)
 - Propagtion protocols
-  - Channel propagtion
+  - Channel propagation
   - DHT
 - Graph data structure
   - Management chain
-  - Data graph
+  - Site content (object-version)
 - Backend procedure
   - Web of trust
     - Naming
@@ -28,7 +28,7 @@ An overview of the whole protocol stack (bottom-up):
 - Interface server
 - Application Frontend
 
-## Obfsucation protocols [unfinished]
+## Obfsucation protocols
 
 Pattern recognition is a popular censorship method, yet most p2p protocols have obvious protocol characteristics. Encryption protocols can't solve this problem, because the protocol handshake (multistream) for encryption can be recognized by GFW.
 
@@ -45,7 +45,8 @@ Planet uses the following two protocols under the hood:
 - *Channel protocol*, which is inefficient for long-term storage and unreliable. However, it has very low latency. The realtime protocol can be compared to UDP in clearnet. The primary usecases for the realtime protocol are:
   - Instant messaging.
   - Video streaming.
-- *Block protocol*, which supports compression and delta-encoding, old data pruning, etc., however has high latency. The data protocol is like TCP in clearnet. The primary usecases for the data protocol are:
+- *Block protocol*, which is optimized for transmitting blocks; however it has high latency. Block protocol is like TCP in clearnet. Compatiblity with protocols other than IPFS is the main purpose of *block protocol* abstraction.
+- *Datablock*, a layer built over block protocol, which supports delta-encoding and compression. The primary usecases for the datablock protocol are:
   - Git hosting.
   - Collaborative wiki.
   - Video hosting.
@@ -58,94 +59,6 @@ Both *IPFS blocks and objects* are a part of *block protocol*.
 
 > The abstraction of block and channel protocols are based on existing implementations. Channel is only one of the propagtion protocols.
 
-## Block protocol
-
-Block protocol uses _data blocks_ as packets. Data blocks are used to transfer _objects_, which is a collective term for all raw data.
-
-> The reference that a block uses for delta-codec is called `base`
-
-Data blocks contain object content in a compressed and encoded format. Say, instead of sending raw version content, one would encode the data, put it into a data block and send the block.
-
-> Data block, also known as, block.
-
-For instance, the following formats could be or are supported:
-
-- *Delta-encoding*: a block is compared with its historical blocks and other related blocks, and instead of raw block content, two values are stored:
-  - A list of *bases*, i.e. references to some older blocks
-  - *Delta*, one of the codecs is:
-    - *Copy* action allows copying a part of some base to the current block
-    - *Insert* action allows adding arbitrary new data
-    - For instance, if the base contents are `ABCDEFGHIJ` and `QRSTUVWXYZ`, then the whole English alphabet can be efficiently represented as:
-      - *Copy* bytes 0..10 from the first base
-      - *Insert* letters `KLMNOP`
-      - *Copy* bytes 0..10 from the second base
-- *Compression*: object data is gzip-compressed
-
-Additionally, the formats can be stacked on top of each other. Notice that order matters: i.e. first delta-encoding and then compressing data is more efficient than first compressing it and then delta-encoding. The first way is known as stacking compression *on top of* delta-encoding, the second way is stacking delta-encoding *on top of* compression.
-
-The CID that is announced on the DHT is a hash of the actual non-encoded data, ie. *objects*, not the hash of a data block.
-
-Data blocks can be sent to other peers in the following two ways:
-
-- *Per-connection*, or *dynamic block* mode. This allows using a different codec or different data for each peer. This method may be slow but it is way better for network connectivity: a peer which doesn't support a new codec may still receive new content, while others peers which support it will receive it compressed even better. This method, however, requires developing a new protocol.
-- *Static block* mode. In this mode, the same data block is used for all peers who request a specific object. This allows using the Bitswap protocol to transfer data blocks. However, static block protocol is inefficient in some cases. When the compression methods are updated, the majority serve the content using new codec, so the blocks of old codec are rarely served, splitting the network, which decreases overall performance. Besides compatibility and consistency, static method is rigid, for it can't encode the data dynamically based on the circumstances of the receiver.
-
-A data block has a slightly different meaning for these two modes. In static block mode, a data block is effectively a valid IPFS block on its own. In dynamic block mode, a data block is temporary and abstract, and it doesn't have to be stored directly in the filesystem; however this caching may still be done for optimization.
-
-> 'Verify' means verification of signature of publickey encryption, but 'validate' has a broader meaning.
-
-In both cases, due to the nature of a data block, it is perfectly valid to make a new block and claim it is a newly encoded version of an object. Although the object content is signed by the content author and thus can be easily verified, a data block cannot be verified until it's decoded. This gives opportunities for DoS and allows exponential data size growth, even when the data block size is small: for instance, each block could duplicate to the previous one by performing the copy action on it twice.
-
-A simple hotfix for this problem is that the object signer should also sign the data block; however, this fix breaks when either of the two conditions hold:
-
-- A block author is not trusted. This is a common situation in multiuser sites.
-- A block author may leave the network. This hotfix effectively rejects any updates to a data block after the author leaves the network.
-
-Another solution is proposed instead. It is well-known that most if not all modern compression algorithms, and thus codecs, allow getting unpacked data length quickly. This allows checking if data length is not greater than the maximum allowed length before actually unpacking content.
-
-```typescript
-interface VersionedBlock {
-    prevCID: CID[];
-}
-
-interface RawBlock { // Multicodec prefixed, compatible with IPFS
-}
-
-interface EncodedBlock extends VersionedBlock { // Multicodec prefixed
-    codec: Codec;
-    encodedData: Buffer;
-}
-
-enum DeltaType {
-    none = 0,
-    plaintext = 1,
-    binary = 2
-}
-
-interface Codec {
-    gzip: boolean;
-    delta: DeltaType;
-}
-
-// One of the delta codecs
-
-interface CopyAction {
-    action: "copy";
-    baseFrom: number;
-    offset: number;
-    count: number;
-}
-
-interface InsertAction {
-    action: "insert";
-    data: Buffer;
-}
-
-interface DeltaEncodedData {
-    CID[] bases;
-    (CopyAction | InsertAction)[] delta;
-}
-```
 
 ## Channel protocol
 
@@ -175,6 +88,163 @@ interface RealTimeData extends ChannelData {  // Example: Instant messaging
 }
 ```
 
+### Propagation protocol
+
+Due to the nature of block protocol that it is optimized for transfering blocks, which is usually not capable of 'propagating', we proposed propagation protocol that turns **static sites** into **dynamic sites**. There's also another type of site called **mutable site**, a term from IPFS. In the context of IPFS, they use IPNS to run mutable sites. IPNS mainly uses DHT to 'propagate' updates, by associating a peerId with a CID that points to the latest version of the site. That doesn't actually propagate, and it is always single-usered. The difference between dynamic sites and mutable sites is that dynamic sites allow more than one authors on a single site. For a mutable site, DHT is apparently the optimal propagation protocol, since there is only one author. Another issue is how the peers of the site can be notified when an update is released. DHT doesn't flood the network. Not involving other protocols, the simplest approach is to set a TTL, and let the peer to re-query DHT periodically.
+
+Dynamic sites require a broadcasting protocol, such as pubsub. That's 'N to N', if we treat mutable sites as '1 to N'. The latter is solved because DHT can always map a key to *one* value. The whole propagation process consists of two steps, visiting a new site, and receiving the updates. When visiting a new site, it downloads the management chain first which is technically a mutable site at this moment. After that, it collects user data, which is truly a dynamic site now. Therefore step one can be optimized using the IPNS way, while step two can't. A basic way to solve dynamic propagation is to use a request-response protocol on channels. Each peer stores a set of values(metadata) for key K, which is normally a site address, and listens on the topic K. When a request is sent, all peers respond with the set of values that have not been sent on the channel. The requester collects as many values as possible. An obvious flaw is that metadata is also broadcasted to peers who already have it. So we don't send metadata on the channel direcly. Instead, the CIDs of metadata are sent. To avoid the use of DHT, the sender peers are supplied to block protocols, so that the metadata are immediately fetched after getting the responses. Note that DHT can also be used here, especially for packed payload (see section site).
+
+```ts
+interface PropagationPayload extends ChannelData {
+  metadata: CID[]; // Metadata
+}
+```
+
+The CID here has two purposes, to let inform the requester the new data, and to remind other peers what have been sent. Lots of optimization can be done here. Suppose we pack all CIDs of metadata into a single block, which is totally feasible, but other replier peers have to download the block, or they won't know what have been sent, and might send repeated metadata. Let's call that 'metadata oversent'. 
+
+#### Optimization
+
+Assuming there are CIDs of metadata, `M1`, `M2` and `M3`, sender A packs all into payload `P1(M1,M2,M3)`, also a CID. Sender B could download the content of CID `P1(M1,M2,M3)`, or he can look up in the cached entries if there is. Assuming `M1` is a very old metadata, most peers naturally won't include it into the packed payload. When a new metadata `M4` is released, the packed payload has to be updated. Let's call that cached/packed payload, and payload caching. The basic rules are that new packed payload are generated by the network periodically. Old metadata are excluded from packed payload. New metadata are included after a reasonable time, when it is fully broadcasted and accepted. 
+
+Do we need a hierarchy of packed payload ? No, that adds non-sense complexity. Packed payload is a kind of temporary block generated for removing redundant data and utilizing DHT. There isn't much data inside, and extra layers will signicantly slow down the speed of loading a site.
+
+```ts
+interface PropagationPayload extends ChannelData {
+  metadata: CID[]; // Metadata
+  packedPayload: CID; // CID of a packed payload
+}
+```
+
+This protocol looks like a sliding window:
+
+```js
+M1 M2 [M3 M4 M5] M6
+```
+
+Packed payload is for peers visiting it as a new site. Both packed payload and non-packed CIDs (`M6`) of metadata are sent over channels, in fact. 
+
+
+## Datablock
+
+Datablocks are used to transfer _objects_, which is a collective term for all raw data.
+
+> The reference that a block uses for delta-codec is called `base`
+
+Datablocks contain object content in a compressed and encoded format. Say, instead of sending raw version content, one would encode the data, put it into a datablock and send the block.
+
+> Datablock, also known as, block.
+
+For instance, the following formats could be or are supported:
+
+- *Delta-encoding*: a block is compared with its historical blocks and other related blocks, and instead of raw block content, two values are stored:
+  - A list of *bases*, i.e. references to some older blocks
+  - *Delta*, one of the codecs is:
+    - *Copy* action allows copying a part of some base to the current block
+    - *Insert* action allows adding arbitrary new data
+    - For instance, if the base contents are `ABCDEFGHIJ` and `QRSTUVWXYZ`, then the whole English alphabet can be efficiently represented as:
+      - *Copy* bytes 0..10 from the first base
+      - *Insert* letters `KLMNOP`
+      - *Copy* bytes 0..10 from the second base
+- *Compression*: object data is gzip-compressed
+
+Additionally, the formats can be stacked on top of each other. Notice that order matters: i.e. first delta-encoding and then compressing data is more efficient than first compressing it and then delta-encoding. The first way is known as stacking compression *on top of* delta-encoding, the second way is stacking delta-encoding *on top of* compression.
+
+In dynamic block mode, the CID that is announced on the DHT is a hash of the actual non-encoded data, ie. **versions**, not the hash of a datablock.
+
+Datablocks can be sent to other peers in the following two ways:
+
+- *Per-connection*, or *dynamic block* mode. This allows using a different codec or different data for each peer. This method may be slow but it is way better for network connectivity: a peer which doesn't support a new codec may still receive new content, while others peers which support it will receive it compressed even better. This method, however, requires developing a new protocol.
+- *Compatiblity*, or *Static block* mode. In this mode, the same datablock is used for all peers who request a specific object. The CID announced is of the datablock, rather than its actual data. This allows using the Bitswap protocol to transfer datablocks. However, static block protocol is inefficient in some cases. When the compression methods are updated, the majority serve the content using new codec, so the blocks of old codec are rarely served, splitting the network, which decreases overall performance. Besides compatibility and consistency, static method is rigid, for it can't encode the data dynamically based on the circumstances of the receiver.
+
+A datablock has a slightly different meaning for these two modes. In static block mode, a datablock is effectively a valid IPFS block on its own. In dynamic block mode, a datablock is temporary and abstract, and it doesn't have to be stored directly in the filesystem; however this caching may still be done for optimization.
+
+> 'Verify' means verification of signature of publickey encryption, but 'validate' has a broader meaning.
+
+In both cases, due to the nature of a datablock, it is perfectly valid to make a new block and claim it is a newly encoded version of an object. Although the object content is signed by the content author and thus can be easily verified, a datablock cannot be verified until it's decoded. This gives opportunities for DoS and allows exponential data size growth, even when the datablock size is small: for instance, each block could duplicate to the previous one by performing the copy action on it twice.
+
+A simple hotfix for this problem is that the object signer should also sign the datablock; however, this fix breaks when either of the two conditions hold:
+
+- A block author is not trusted. This is a common situation in multiuser sites.
+- A block author may leave the network. This hotfix effectively rejects any updates to a datablock after the author leaves the network.
+
+Another solution is proposed instead. It is well-known that most if not all modern compression algorithms, and thus codecs, allow getting unpacked data length quickly. This allows checking if data length is not greater than the maximum allowed length before actually unpacking content.
+
+```typescript
+interface VersionedBlock {
+    parents: CID[]; // It does not merge, but creates a new branch, when using multiple parents
+    // Storing parents field on datablock allows verion tracing without decoding
+}
+
+interface RawBlock { // Multicodec prefixed, compatible with IPFS
+}
+
+interface EncodedBlock extends VersionedBlock { // Multicodec prefixed
+    codec: Codec;
+    encodedData: Buffer;
+}
+
+enum DeltaType {
+    none = 0,
+    plaintext = 1,
+    binary = 2
+}
+
+interface Codec {
+    gzip: boolean;
+    delta: DeltaType;
+}
+
+// One of the delta codecs
+
+interface CopyAction {
+    action: "copy";
+    baseFrom: number;
+    offset: number;
+    length: number;
+}
+
+interface InsertAction {
+    action: "insert";
+    data: Buffer;
+}
+
+interface DeltaEncodedData {
+    CID[] bases; // Version or datablock
+    (CopyAction | InsertAction)[] delta;
+}
+```
+
+### Delta-encoding
+
+What can be bases ? All types of versions, whether the version is a raw block, or delta-encoded. Objects can't be bases. However, referencing objects from another site might be useful.
+
+Typically, the bases selected to encode a new version of an object are the older versions, unless the new version is considerably different from all its *parents*. So, can we use bases outside the site ? How they select the bases for a datablock can potentially cause undesired seeding. Once we visit a site, we trust the site and seed its content implicitly. The problem is that a site can have many users. You may want to seed only the content of the owner. Imagine a blog author posted an article containing a clip of a video that is 10 GB. Assuming there is an insane 10 GB block, which is not sharded, you have to download the whole block before processing that clip. In reality, the video is splitted into tens of thousands of blocks. It is not impossible to have a 10GB raw block, however. In such case, we *trust* the site author, so we actually choose to download the 10GB video. If a random blog commenter uses such a clip with 10GB base block, we probably won't do the same. Firstly, we need a system to manage what can be implicitly seeded, and what can be used as bases in what scopes for what kind of users. Then, it should ask user if existing rules can't decide.
+
+How to encode with optimal performance ? There are multiple factors for choosing bases. How much extra data we need to encode using some bases, whether the bases are seeded by the majority, and whether the bases are seeded by the majority of the visitors of a site. For example, d-stackoverflow users usually have d-stackexchange seeded, so we can use resources from one another. When encoding a datablock, melotte search from its the parents of the version, and from the scope of same site. It doesn't download new sites automatically. Non-downloaded blocks can't be compared and used. Encoding from another site requires the help from the user. Application assisted delta-encoding is preferred. A site can specify bases when a user comments with quotes from other comments. Melotte would offer an interface for users to choose bases, and the scopes to search bases. The size of a blog comment is usually size-limited. To get more 'real' comment space, users are encouraged to use good bases. Quoting or linking is also a good practice. This is the natural ranking system. Most quoted content gets more seeders, and quotes can be traced (what site a comment belongs to) if it is not quoting low-level blocks. Quotes are authenticated, moreover.
+
+> How should size-limit be done ? Two different limits, one for actual datablock size, another for decoded data size.
+
+Factors concerned
+
+- Encoding cost, time of searching, and space of downloading new blocks if melotte is configured to download new blocks for encoding, which is disabled by default.
+- Decoding cost, **time of querying DHT** and **space of fetching extra data** that is not included in this datablock
+  - First datablock cost, when the datablock is the first block a peer wants to download
+  - First datablock of the site cost, when it is the first block downloaded in site content.
+  - First block of a scope, the same as above, but for a scope, which can include multiple sites.
+  - Extra cost, when there is a existing alternative base on that peer, but per-connection delta-encoding is not available.
+
+A datablock might include many layers of CID reference to other datablocks of current site. When this block is downloaded, the whole site is almost completely downloaded too. Though you can get other blocks quickly after that, the time to download this block as the first block is significant. The cost of querying DHT is mainly about the time. Actually the downloading would be fast if there are enough peers. The time of querying is much more different. It involves network latency, and varies depending on the network circumstances. Extra data is the data not really required by current datablock, but can be useful later for other blocks in the same site, scope, or for that user.
+
+#### Compression
+
+Compression can also be done on transport layer, which needs re-computing every connection while the data stored is not compressed. The compression on this layer gives the user to save the space of storage, for some specific objects or sites. Since it is per-object compression, only some of the blocks are compressed, allowing frequently used blocks to be not compressed.
+
+#### Per-connection delta-encoding
+
+Instead of encoding objects at publish time, this can encode for each receiver peer. The above requires the content author to choose bases for his audience, which favors the majority, and might be inefficient in some cases. This mode allows to change the datablock and the encoding for an object as time passes. It doesn't mean it encodes for each peer, but it can. Through a *delta-codec negotiation* process, the sender finds out what blocks the peer already have, and the bases are chosen based on that peer.
+
+This mode is not compatible with bitswap, as it uses the actual CID of the payload, ie. object, as the announced key.
+
 ## Site
 
 ![](./site.drawio.svg)
@@ -184,7 +254,7 @@ Publishing new versions of a site or its user content can only take place on cha
 As shown in the picture, a user publishes a request on channel, and other peers response with all related data. This doesn't guarantee the user gets all data of a site, including site data and user data, in the network. Furthermore, it is even not possible in theory, because there can peers hold data privately and never publishes its content. The user can always get the newest versions and considerably complete data, as long as at least a single peer publishes the newest or missing data. For the content owner, publish failure is more often than this, due to network issues, such as censorship. To mitigate spam, a time interval disallowing duplicating request is introduced, which is also known as *request window*. For each request window, only one request is allowed, and thus no duplicating response would be sent. The size of request window determines how fast we can download a site from scratch.
 Once there has been a single peer responded the request, other peers won't send the same metadata again. At most, in one request window, there can be one request, and metadata of site and user data.
 
-An improvement is to put metadata on DHT using the publickey of the site as the key and the site metadata as the value. More precisely, the publickey of the genesis block and when the management chain is downloaded, the publickeys of all other known signers. Each publickey maps to the latest metadata signed by it. You still can't use DHT to replace channel protocol, because there's no way to notify peers that something has updated. So, IPNS uses a [polling](https://github.com/ipfs/specs/blob/master/IPNS.md) method. This way is only useful at the first time visiting a site. After the first visit, we'll use channel instead. That'll be twice delay if we use both DHT and channel. 
+An improvement is to put metadata on DHT using the publickey of the site as the key and the site metadata as the value. More precisely, the publickey of the genesis block and when the management chain is downloaded, the publickeys of all other known signers. Each publickey maps to the latest metadata signed by it. You still can't use DHT to replace channel protocol, because there's no way to notify peers that something has updated. So, IPNS uses a [polling](https://github.com/ipfs/specs/blob/master/IPNS.md) method. This way is only useful at the first time visiting a site. After the first visit, we'll use channel instead. That'll be twice delay if we use both DHT and channel.
 
 The hierarchy looks like this
 
@@ -193,6 +263,8 @@ The hierarchy looks like this
     - Versions
       - Bases
         - Blocks
+
+A `site` consists of `objects` that is a series of `versions` which are probably delta-encoded `datablocks`
 
 > Branches are separate versions
 
@@ -205,6 +277,13 @@ For example, this is a unixfs. `OBJ1` is a directory, with files, `OBJ2` and `OB
 > RawBlock means to be compatile with IPFS. An EncodedBlock can be raw, but is still versioned and not compatible with IPFS.
 
 You can also treat each folder as an object. That depends on your need. The benefit of tracking files individually is that you can have different permission settings for each file. If the whole folder is treated as an object, any modification to any file inside produces a new version. In this case, to set different permissions, the site has to do something manually.
+
+How sites are created, and organized with other sites:
+
+- Template. A site can be created from another site, called base site. 
+    Base site can contain a constructor fuction to create the new site. The new site can have all objects the base site have, and the objects use the objects from the base site as bases. 
+- Reference-site. *Objects* from a site can be linked to another site. The objects linked to that site update when the source update.
+- Component. One site can call another site via melotte. A component can optionally have a frontend, to embed in a host site, or as management UI.
 
 ### Archiving and pruning
 
@@ -272,7 +351,7 @@ The download process is handled by data script, which decides when the metadata 
 Metadata is always about a user, whether it belongs to site content or user content. There's no strict separation of site content and user content. The data script determines what is considered site content. Blocks from each author of the site form objects of the site. An object can have versions from multiple authors.
 
 ## Branching
-
+ 
 Version-object structure is similar to git, but not exactly. We aim to offer versioning feature while keeping maximum flexibility. A default data script is provided to deal with branching issue.
 
 There is no concept of merging in a decentralized network. Both branches are kept. A site can either keep both branches or select one of them. That's the responsibility of the site, not us. All versions are kept for data script.
@@ -302,12 +381,12 @@ Note that low-level DDoS defense should not depend on WoT system.
 
 ## Web of trust
 
-The idea of web of trust is that, the only trustworhy person is yourself. Let the count peers you directly trust be N1, and the count of peers trusted by each peer you trust be respectively M[1], M[2], ... , M[N1]. So, in the third layer, the trustworhiness of the first peer is 1/N1/M[1].
+The idea of web of trust is that, the only trustworhy person is yourself. Web of trust is subjective, which forms a different directed graph for each peer. Let the count peers you directly trust be N1, and the count of peers trusted by each peer you trust be respectively M[1], M[2], ... , M[N1]. So, in the third layer, the trustworhiness of the first peer is 1/N1/M[1]. Peers trusting each other on the same layer are counted. A peer on a layer trusts several other peers. They get the same trustworhiness if they don't trust each other, or they trust all each other. The peers trusted by more peers on the same layer get a higher *share* of trustworhiness arranged for that layer. Peers on nearer layers can trust the peers on further layers, from that peer's perspective, which means the reverse trust is not counted. Such a cross-layer trust is actually about how we treat layers. In fact, one peer can be on multiple layers, and obviously the trustworthiness is calculated individually and added up afterwards.
 
 The list of trusted peers are derived from
 
-- User specified peers
-- Peer reputation (builtin in go-ipfs)
+1. User specified peers
+2. Peer reputation (the behaviour of a peer, mainly about download and upload)
 
 Announcing a trust record is similar to normal site content, but the validation is handled by Planet.
 
@@ -330,14 +409,14 @@ WoT based DNS.
 
 - Each user can publish name records for their sites via channel protocol.
 - Visitors resolve domain names based on WoT evaluation result, as follows
-  - A user can choose one candidate from all competing sites regarding a domain name, and publish a preference record
+  - A user can choose one candidate from all competing sites regarding a domain name, and publish a *name preference record*
   - When resolving a name, the name evaluated by WoT with highest score are selected.
 
 Unfortuately, we can't trust users completely. They might choose a phishing website for a domain name, or trust some dishonest people. However, trusting always exist. When you use a DApp registered on ENS, you implicitly trust ENS, which is an authority, although it is seemingly decentralized. Neither trusting users, nor authoriy only is applicable. A domain name may be resolved to different addresses in different parts of the network. This is actually inevitable, since if you allow multiple name resoltuion service, there is always inconsistency. In conclusion, WoT is natural and singular consensus is unnecessary and impractical.
 
 In practice, we use sites as the main entities in name resolution system, called *name provider*. A name provider site can be a group of users, a blockchain, a static mapping table, or even only a script.
 
-### Spam defense
+### Priority and Spam defense
 
 > PoW is useless
 
@@ -345,9 +424,22 @@ WoT based spam defense are applied on higher layers, block protocol and site con
 
 One possible solution is to ask the requester peer for a captcha, or even user-specified challenge. If the peer passes the challenge, he gets the trust, less or more, from the challenger. In other words, he joined the Web of Trust, since the requester is also trusted by others. Depending on the difficulty of captcha and the circumstances of the challenger, or WoT, he may need to do one or multiple captchas.
 
+Content what the user disliked and marked as spam are not shown later. The *perference record*, which states the opinion of the user about what blocks are spam and what are not. The target of a preference record can be an object, eg. a blog post comment, a user, or a site. Depending on the site, if it is possible to remove these blocks without breaking the site, these blocks are unseeded and future downloading attempts are warned. Another option is to keep the blocks, but no longer announced, which doesn't break the site locally. This is acutally non-sense, because when there're enough peers who stop seeding it, the site becomes broken automatically. A non-blacklisted comment quoting a comment of a blacklisted user. To not get a broken comment, we may download that block in this case. 
+
+The result of WoT evaluation is also applied on this.
+
 ### Distributed searching
 
 Due to the efficiency of possible DoS on it, this may happen only within WoT. To search on a site, or all sites, the requester sends a search request on channel, and collects and sorts the search results sent by other peers.
+
+### Private network
+
+Melotte can be configured to connect only trusted peers, forming a private network, also known as F2F.
+This mode is useful in case censorship becomes overwhelming.
+
+### Decentralized anonymity network
+
+The main purpose of WoT is to prevent sybil attack. A completely decentralized anonymity network becomes feasible when there is a large enough WoT, *without* the need of a blockchain.
 
 ## Time guarantee
 
@@ -370,3 +462,7 @@ What if I am the new comer of a site ? This is the only possible scenario where 
 Sybil attack ? There can't be sybil attack, since creating massive identities don't help. This is not a reputation system. If there are enough layers, false timestamps eventually vanish. If not, the better, everyone can validate the timestamps on their own, as they know `Now` and original timestamps.
 
 In conclusion, both `backward` and `future` timestamps are banned, in time sensitive sites which limit the metadata to be propagated only among peers who have downloaded that site.
+
+## Miscellaneous
+
+`Publickey` is a multiformat. `PeerId` is not used in most cases, because it is a format designed for IPFS, and it can always be calculated from `Publickey`. 
