@@ -38,6 +38,17 @@ libp2p supports protocol negotiation. Unfortunately, it was proven to be easily 
 - Websockets with obfuscated multistream handshake [TODO]
 - *Other candidates are possible and welcome*
 
+## Storage
+
+- Immutable storage
+  - ipld-unixfs
+  - ipld-git
+  - ... (compatible with IPFS)
+  - Mutable storage
+    - Object-version structure
+
+Any type of storage can be *dynamic* and encoded, which is not related in this classification. Propagation protocol makes content 'dynamic'. Encoding involves datablock, which is an ipld format. Encoded data is the payload of EncodedBlock, so it is incompatible with IPFS. **Immutable storage can be 'converted' to mutable storage**, by adding a version. That means an IPFS-compatible block can be transformed to an object. Sometimes we call an immutable block as an object if it is designed to be allowed to add new versions to this block so that it becomes an object.
+
 ## Channel and block protocols
 
 Planet uses the following two protocols under the hood:
@@ -76,9 +87,8 @@ interface ChannelData {
 }
 interface Metadata extends ChannelData { // Metadata for the site, or the content of a user
     timestamp: Date; // See time guarantee below
-    blocks: CID[];
-    blocksArchived: CID[];
-    extraData: Buffer;  // Urgent data, size limited
+    blocks: Map<CID, CID>; // Blocks can be versionedBlock or any IPLD block. For versionedBlock, the CID of its archived form can be specified in the corresponding key.
+    extraData: Buffer;  // Urgent data, size limited, or optional blocks
     prevMetadata?: CID; // CID of the previous metadata
     // This actually creates a metadata chain, but normally it is not used.
     subMetadata?: CID[];
@@ -173,6 +183,8 @@ Another solution is proposed instead. It is well-known that most if not all mode
 interface VersionedBlock {
     parents: CID[]; // It does not merge, but creates a new branch, when using multiple parents
     // Storing parents field on datablock allows verion tracing without decoding
+    // CID of the parent version, key-value pairs will be used to map a version CID between datablock CIDs
+    timestamp: Date; 
 }
 
 interface RawBlock { // Multicodec prefixed, compatible with IPFS
@@ -249,7 +261,9 @@ This mode is not compatible with bitswap, as it uses the actual CID of the paylo
 
 ![](./site.drawio.svg)
 
-Publishing new versions of a site or its user content can only take place on channels, because you can't put a link pointing to the new version in the block of the previous version. Given a genesis management block of a site, it's impossible to get its sucessors without channel protocol. Another aspect is user/site content, which is basically aggregating based on some rules, ie. data script. In addition to the graph, when the author signs and publishes the metadata of his blocks, other peers listening on the channel *cache* the received metadata in the repo, as if they are blocks, and *re-propagate* the metadata when other peers request it. For each version of an `object`, the signer generates a new metadata. The dafult behaviour (well-behaving) of a peer is to re-propagate the *newest* version of an object, since new blocks normally link to old blocks. To identify which block you got is the successor of an arbitrary block, the successor block (or its metadata) should contain a link to its previous version. key-value store to track the history of each object, which uses the CID of the first block of the object as key, the last CID of the block of the object as value. Each block of an object is called a commit or a version, which can have bases if it is a EncodedBlock.
+Publishing new versions of a site or its user content can only take place on channels, because you can't put a link pointing to the new version in the block of the previous version. Given a genesis management block of a site, it's impossible to get its sucessors without channel protocol. Another aspect is user/site content, which is basically aggregating based on some rules, ie. data script. In addition to the graph, when the author signs and publishes the metadata of his blocks, other peers listening on the channel *cache* the received metadata in the repo, as if they are blocks, and *re-propagate* the metadata when other peers request it. For each version of an `object`, the signer generates a new metadata. The dafult behaviour (well-behaving) of a peer is to re-propagate the *newest* version of an object, since new blocks normally link to old blocks. To identify which block you got is the successor of an arbitrary block, the successor block (or its metadata) should contain a link to its previous version. Each block of an object is called a commit or a version, which can have bases if it is a EncodedBlock.
+
+> Commit is the action of publishing a new version
 
 As shown in the picture, a user publishes a request on channel, and other peers response with all related data. This doesn't guarantee the user gets all data of a site, including site data and user data, in the network. Furthermore, it is even not possible in theory, because there can peers hold data privately and never publishes its content. The user can always get the newest versions and considerably complete data, as long as at least a single peer publishes the newest or missing data. For the content owner, publish failure is more often than this, due to network issues, such as censorship. To mitigate spam, a time interval disallowing duplicating request is introduced, which is also known as *request window*. For each request window, only one request is allowed, and thus no duplicating response would be sent. The size of request window determines how fast we can download a site from scratch.
 Once there has been a single peer responded the request, other peers won't send the same metadata again. At most, in one request window, there can be one request, and metadata of site and user data.
@@ -264,7 +278,7 @@ The hierarchy looks like this
       - Bases
         - Blocks
 
-A `site` consists of `objects` that is a series of `versions` which are probably delta-encoded `datablocks`
+A `site` usually consists of `objects` that is a series of `versions` which are probably delta-encoded `datablocks`
 
 > Branches are separate versions
 
@@ -280,10 +294,38 @@ You can also treat each folder as an object. That depends on your need. The bene
 
 How sites are created, and organized with other sites:
 
-- Template. A site can be created from another site, called base site. 
-    Base site can contain a constructor fuction to create the new site. The new site can have all objects the base site have, and the objects use the objects from the base site as bases. 
-- Reference-site. *Objects* from a site can be linked to another site. The objects linked to that site update when the source update.
-- Component. One site can call another site via melotte. A component can optionally have a frontend, to embed in a host site, or as management UI.
+- **Template**. A site can be created from another site, called base site. 
+    Base site can contain a constructor fuction to create the new site. The new site can have all objects the base site have, and the objects use the objects from the base site as bases. A site can also be created without constructor, by selecting data manually.
+- **Reference**. *Objects* from a site can be linked to another site. The objects linked to that site update when the source update, which is different from Template.
+- **Component**. One site can call another site via melotte. That site, as the callee, is called component. A name provider is a component site, which is completely independent, but requires other sites to be fully functioning.
+
+Normally, a site has several parts of data
+
+- Management chain
+  - **Management script**, usually compiled WASM binary, inside the management chain, for verifying the chain itself and the data.
+  - **Data script**, also WASM binary, for validating the site content, including both owner content and user content.
+- Data
+  - **Backend**, where site data is read and written, and it interacts with frontend through melotte.
+  - **Frontend**, pages served by melotte interface server.
+  - **Site content**, also known as *site data*.
+
+Case one, you want to add a commenting section to your blog. A real world example is disqus, but you probably don't want to use that. The common way is to add some code on one's own, or use a package manager like npm, to install a package. That acutally works, but you have to update the package when a bug is fixed or new features are released. A complete commenting system has management interface, that requires a backend. Integrating so much things into a blog isn't a good idea, so, we introduced component. If you don't want to obfuscate management chain and data script, a component shouldn't be allowed to write into the site. Instead, the commenting component should have a feature to download only a part of the comment data, which is only related to your blog. The request of downloading is, of course, all sent by the data script or backend. Melotte doesn't download anything except for the chain and the data of owners specified in management chain.
+
+Case two, creating a new d-stackexchange. There are many ways to do this, copying the code from base d-stackexchange and pasting to a new site, or referencing the code of base site in the new site. Before creating a new site, we should check our requirements. Will we do changes to the code base, or we only need an identical copy of the original site. Generally, we'd solve that by using *references*, which are like git submodules, but operate on the level of objects. Suppose we don't do any modification, the references get updates automatically without owner's confirmation as there are no conflict. The problem is we always need to do something to the code base, which causes conflicts. When we commit the changes, we actually have two branches, one is our commit, another is the object from referenced site. We have to merge these branches, or use one of them, through some process. 
+
+### Objects
+
+An object is a series of versions which are datablocks with version related fields. It is meaningful only when its site is present. Objects need a site as the topic name of the channel, to receive further versions, so there shouldn't be isolated objects. Object can have *references*, which mirrors the target object as a single branch. This is not git reference. Reference is marked by some fields in a version of an object, including the address of the target site, and the CID of one of the versions of the object. The virtual branch is created using that version as the common parent. Git-like branching system can be implemented via data script, which decides the current value of an object, but melotte always deal with actual branches. 
+
+> CID of a version means the CID of the actual data. CID of the datablock of the version means the CID of the datablock that stores the version.
+
+Version-object structure is similar to git, but not exactly. We aim to offer versioning feature while keeping maximum flexibility. A default data script is provided to deal with branching issue.
+
+There is no concept of merging in a decentralized network. All branches are kept. A site can either keep both branches or select one of them, or anything. That's the responsibility of the site, not us. All versions are kept for data script. One can still commit a version that uses several branches as parents, creating a new branch that merges two branches. Accepting this attempt of merge is also determined by the script. Branches are immediately created when someone commits a version with more than one parents, or more than one versions use a same parent, which is different from git.
+
+Anyone accepted by data script is allowed to commit on an object. If two persons commit to an object at the same time *accidentally*, there will be two branches. For a wiki site, we may show the version with *latest* timestamp to users. In this example, order doesn't matter, but the latest version is preferred, because the latest version means it is more 'accurate'. Suppose we don't use the latest version for a wiki, a false wiki page can't be corrected immediately. For the code base of a site, we can't simply use both branches, which might break the site. Based on time, we can choose one of the branches with *earliest* timestamp. If someone commits to that object and use two branches as parents later, we can simply switch to this branch. Such a branch is called a *merge*, which has multiple parents. A merge that use all existing branches, *for a specific peer*, as parents is called a *complete merge*. Conversely, a merge that only solves some of the conflicts is called a *partial merge*.  In this case, we may only want a complete merge, and choose branches or merges with earliest timestamp if there isn't. Using the earliest branch is to keep the code base stable. We can't use longest branch here, but time gurantee works. It is possible the privatekey of one of the signers is stolen, and the attacker attempts to create a branch on a very early version. For a blockchain site, use the longest branch then.
+
+> Timestamp is assumed to be accurate, see section time guarantee.
 
 ### Archiving and pruning
 
@@ -297,8 +339,6 @@ This concept is proposed for it's a common requirement in sites. When we say `ar
 A random example of how complicated the relationship among blocks can be
 
 ![](./archive.drawio.svg)
-
-> We added a new dimension to IPLD, time.
 
 One of the concerns is when you archive something, there can be side effects. For instance, assuming you are going to archive a base, to make the base itself no longer a requirement of any other blocks, you have to traverse through the merkle forest, because a base doesn't have links to its dependencies. You may propose to create reverse links when receiving data, but the choice of archiving bases is wrong in the first place. Now think about a base can be anything that other things depend on, not only a concept only of delta-encoding. So, we don't archive the dependents, but the dependencies of some data.
 
@@ -328,7 +368,7 @@ Metadata signs CIDs of objects of a site, and links to the old block. An approac
 
 > Most compression algorithms are deterministic
 
-Objects can also be archived, and is straightforward. Exclude the undesired objects from site metadata, since an site metadata always include all its objects. The archived objects are automatically cleared via garbage collection, when it reaches the size limit.
+Objects can also be archived, and is straightforward. Exclude the undesired objects from site metadata, since an site metadata always include all its objects. The archived objects are automatically cleared via garbage collection, when it reaches the size limit. Explicit archiving can be instructed by a version that has a archive field.
 
 > We may need sub-metadatas for huge sites with millions of files signed by a single publickey.
 
@@ -350,11 +390,7 @@ The download process is handled by data script, which decides when the metadata 
 
 Metadata is always about a user, whether it belongs to site content or user content. There's no strict separation of site content and user content. The data script determines what is considered site content. Blocks from each author of the site form objects of the site. An object can have versions from multiple authors.
 
-## Branching
- 
-Version-object structure is similar to git, but not exactly. We aim to offer versioning feature while keeping maximum flexibility. A default data script is provided to deal with branching issue.
-
-There is no concept of merging in a decentralized network. Both branches are kept. A site can either keep both branches or select one of them. That's the responsibility of the site, not us. All versions are kept for data script.
+Only top-level objects or blocks are sent via metadata. Top-level blocks or objects are not referenced by other blocks or objects immutably, which are not accessible without metadata for the data script that downloads the site. Metadata script would inspect metadata each propagation, to filter out malicious unnecessary data like non-top-level CIDs, and archived blocks or objects that are not needed any more.
 
 ## Denial of service
 
@@ -399,6 +435,8 @@ interface TrustRecord { // Encoded data on datablock
 > There are *only* two options, either blockchain or WoT, to prevent sybil attack and offer a reasonable functionality.
 > Blockchain is not censorship-resistant, however.
 
+WoT is not a site, but part of the core.
+
 ### Naming
 
 > Although the paragraphs below mainly talk about DNS, the solutions also apply to user name.
@@ -416,6 +454,16 @@ Unfortuately, we can't trust users completely. They might choose a phishing webs
 
 In practice, we use sites as the main entities in name resolution system, called *name provider*. A name provider site can be a group of users, a blockchain, a static mapping table, or even only a script.
 
+- Name provider site (from centralized to decentralized)
+  1. Centralized, and personally issued, or by organization.
+      - Blockchain, a variation of centralized name provider
+  2. Group of selected users, from WoT. 
+  3. Static resolution table
+  4. First-come-first-serve script based on WoT.
+  5. Subjective WoT (not a site)
+
+The form of user group name provider is a kind of delegated trust. The user can either trust all of the users specified in the site, or none of them, which unifies name resolution more than WoT only. First-come-first-serve pattern is only possible after sybil attack problem is eliminated, which requires WoT. It's one of the examples of using only script as a name provider, which processes WoT name results and accepts the very first records.
+
 ### Priority and Spam defense
 
 > PoW is useless
@@ -430,7 +478,7 @@ The result of WoT evaluation is also applied on this.
 
 ### Distributed searching
 
-Due to the efficiency of possible DoS on it, this may happen only within WoT. To search on a site, or all sites, the requester sends a search request on channel, and collects and sorts the search results sent by other peers.
+Due to the efficiency of possible DoS on it, this may happen only within WoT. To search on a site, or all sites, the requester sends a search request on channel, and collects and sorts the search results sent by other peers. The ranking algorithm can be based on seeder count, which is a natural metric in dweb, or combined with other methods like PageRank.
 
 ### Private network
 
@@ -462,6 +510,67 @@ What if I am the new comer of a site ? This is the only possible scenario where 
 Sybil attack ? There can't be sybil attack, since creating massive identities don't help. This is not a reputation system. If there are enough layers, false timestamps eventually vanish. If not, the better, everyone can validate the timestamps on their own, as they know `Now` and original timestamps.
 
 In conclusion, both `backward` and `future` timestamps are banned, in time sensitive sites which limit the metadata to be propagated only among peers who have downloaded that site.
+
+## Cases
+
+> Some examples
+
+- Simple announcement board
+  - Anyone can publish content with size limit less than 256 bytes
+  - Not using mutable storage. The only block in mgmt chain is genesis block, that contains a data script allowing only a certain CID of backend and frontend, and user content is size limited. Backend and frontend are unixfs format, not delta-encoded. The mgmt script rejects all later updates. WoT is enabled by default.
+> This kind of site is simple enough that can be immutable. Maybe we don't need that publickey, as the site address.
+- Simple chat
+  - Messages are immuatble. Each user has a editable bio. Code base is mutable for future versions
+- Blockchain with smart contract
+  - Mutable storage for wallet UI and broadcasted transactions, and immutable storage for the blockchain itself. Smart contracts are run by calling melotte API.
+  - Other sites can call this blockchain via melotte. 
+- Chat
+  - Rotating mutable message storage.
+  - Two step message publishing, on channel firstly for lower delay, and then message object for long term storage. Each peer running this site has a overall size limit for all message objects served. When new message objects arrive, old objects are pruned, and no longer get distributed. WoT result is applied and different users have different limit. Since message object is for relaying when the party is not online, message objects temporarily stored in other peers are soon marked as prunable after the party is confirmed to be online. It is consider to be online when the party who was offline relplies. 
+- Forum
+  - Object types: topic, comment, reaction, attachment, user, signal (for reporting and moderating)
+  - A topic has topic name and body. A comment has a link to the topic. Orphaned topics are garbage-collected. A reaction is like a comment, but for upvote and downvote. An attachment is a wrapper for files that referenced in the topic or comment, which contains metadata of the target. Moderators can use signals to manage the site. Signals are also used to report spam, and inappropriate content. All things are editable. Only the owners specified in management chain have the rights to archive. Moderators are not registered in the management chain, but in the site data part. 
+- Wiki
+  - Object types: page, index, user, comment, signal
+  - A user has a username associated and some basic information stored in user object. A wiki page is an object that has many versions, publised by any user. A comment links to the related wiki page. Otherwise it will be garbage-collected. Maybe there should be a metadata page object that has the links to multiple pages in various languages. WoT is applied. Wiki page editions with low WoT score is hidden, until it gets enough approval, via signal, from trustworthy peers in WoT (subjective).
+
+> The wiki should embed a forum, and that forum should embed a chat. Weird, right ?
+
+
+
+- Live collaborative editing, google-docs like
+  - Making use of NAT traversal ability of the network.
+  - Integrate with IM.
+- Git
+  - Git has to be simulated on the top of the git-like object-version structure, because git treat the whole repository as an 'object' while we track objects individually, which is more suitable and efficient in dweb.
+  - Root, metadata git repo object that links to other objects
+    - Repo name, description, readme and owners, size-limited.
+  - Only metadata objects are downloaded by all peers. When someone vistis a repo, the repo is seeded. Shallow seed can be applied automatically if a peer has limited storage, ie. archiving old commits.
+  - Local search based on repo name, description and readme. A lightweight full-text indexer is needed. 
+  - Extended markdown without compromising security.
+  - Stars are evaluated with the WoT score of users. Trending list is automatically generated with the data from local tracker that tracks the taste of the user. It is possible to get the data of 'rising', since timestamp is guaranteed.
+  - Private repos are totally ok. Melotte can even be a private network.
+  - Issues page is similar to a forum, but it can have better a integration with project kanban board.
+- Social networks
+  - Object types: user, post, comment, reaction, group
+  - Sorting by time, popularity, preference, random, or any of these combined. 
+  - Posts from a group are only downloaded when requesting
+
+How shall we rank and sort the content ? For different purposes, the method should differ. Websites like reddit, quora rank the content by populariry, which is not applicable in the case of stackoverflow. The point is popularity doesn't imply quality. Among the users, the standard of quality content varies. Common factors of ranking are time, popularity, *quality* and *preference*. For instance, social networks can adjust the algorithm to favor popularity. Quality is actually a vague word. It may stand for populariry sometimes. But popular opinion is not always true. A repository with more stars might be worse instead, because the people who rate the repository aren't necessarily familiar with the technology the repository is about, and popular repositories tend to get more stars. That's the flaws of current ranking systems. As a result, it takes a long time for a new project to be known to the others. To make things worse, some monopolistic search engines in some countries rank the sites by bidding. Now the definitions of the two terms are clear, *quality* is the preference of the WoT community/group you are in, plus some algorithm that counts citation/dependency/PageRank, and *preference* is about yourself. The spam articles I dislike might be the taste of some readers, on the other hand. 
+
+
+## Anonymity
+
+Anonymity is an unavoidable topic towards a censorship-resistant network. However, apparently IPFS team aren't treating anonymity transport as a priority. Tor is quickest to deploy for the time being, as openbazar has written [go-onion-transport](https://github.com/OpenBazaar/go-onion-transport). You can't use tor in some censored countries, where melotte is needed. Alternative decentralized solutions have been proposed, such as I2P. Since I2P is written in java, we'd use Kovri, developed by Monero. It is proven vulnerable to sybil attacks for decentralized anonymity networks, which can be probably solved by WoT in the future.
+
+## Philosophy of this project
+
+Many p2p projects have been started in this decade, for different purposes and applications. No one has ever tried or wanted to build an infrastruture to replace centralized web. As the demand changes, people invent new protocols, and old networks are abandoned. A remarkable attempt is libp2p and IPFS. They aim to modularize the foundations of p2p protocols, eg. DHT. It's far from done, however. That's only a part of the dweb protocol stack. Following the trend of putting things into the web, we adopted WASM. Therefore, a site is self-hosted, sandboxed, and acts like a native application. Melotte is not a bittorrent video streamer, or a decentralized file synchronizer, or a distributed search engine. It's all of them.
+
+In regard to compatibility, we add one more layer, inluding block protocol and channel protocol. Thus, both bitswap and bittorrent can be block protocols. That's flexibility, one of the features we aim to offer. Besides the concept of immuatble storage from IPFS, we also introduced object, site, and many more.
+
+Blockchain can never replace the decentralized web, no matter how overwhelming the hype is. The nature of blockchain that it is validated and dominated by the minority, the rich, whether it's PoW, PoS or proof of anything, deciding that it is impossile to be censorship-resistant, which is contrary to the original purpose of p2p networks, while existing projects use blockchains nearly everywhere. Even worse, many blockchains still use wasteful and non-sense Proof of Work protocol, which could only centralize it more.  Hopefully there will be non-blockchain crypto-currencies in the near future.
+
 
 ## Miscellaneous
 
