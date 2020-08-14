@@ -1,5 +1,15 @@
 syntax = "proto3";
 
+// Hierarchical metadata
 message Metadata {
-	
+  message BlockInfo {
+    bytes cid = 1;
+    bytes cidArchived = 2;
+    repeated bytes subMetadata = 3;
+  }
+  repeated BlockInfo blocks = 1;
+  bytes prevMetadata = 2;         // CID of the previous metadata
+  repeated bytes subMetadata = 3; // Sharding, CID
+  bytes extraData = 4;            // Application specific
+  bytes site = 5;                 // Publickey of the site
 }

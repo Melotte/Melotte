@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+message ChannelData {
+  bytes sender = 1; // Publickey
+  bytes signature = 2;
+  bytes payload = 3; // Can be another channel data
+  uint32 timestamp = 4;
+  bool repropagate = 5;
+  uint32 encryptionAlg = 6;
+}
+
+// Only CID. As the payload field of channeldata
+message PropagationPayload {
+  repeated bytes metadata = 1;
+  bytes packed = 2;
+}

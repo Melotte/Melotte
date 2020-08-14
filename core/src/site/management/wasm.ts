@@ -30,22 +30,21 @@ type Argument = number | CPtr;
 
 
 export default class WASM {
-	private heap: Int8Array;
-	private usedGas: number = 0;
+	public memory: Uint8Array;
+	private usedGas = 0;
 	private debug: debug.Debugger;
 
 	private static id: number = 1;
 
 
-	private constructor(private instance: WebAssembly.Instance, id: number) {
-		const buffer = new ArrayBuffer(TOTAL_MEMORY);
-		this.heap = new Int8Array(buffer);
+	private constructor(private instance: WebAssembly.Instance, id: number, memory: WebAssembly.Memory) {
 		this.debug = debug(`planet:wasm:runner${id}`);
+		this.memory = new Uint8Array(memory.buffer)
 	}
 
 
 	copy(from: Buffer, to: CPtr): void {
-		this.heap.set(from, to.value);
+		this.memory.set(from, to.value);
 	}
 
 
@@ -104,7 +103,7 @@ export default class WASM {
 		}
 
 		const instance = await WebAssembly.instantiate(waModule, imports);
-		const wasm = new WASM(instance, WASM.id++);
+		const wasm = new WASM(instance, WASM.id++, imports.env.memory);
 		wasm.debug(`Initialized in ${Date.now() - timeStart}ms`);
 		return wasm;
 	}
@@ -114,14 +113,14 @@ export default class WASM {
 		return this.instance.exports[name];
 	}
 
-
-	private call<T extends Number | undefined>(retTypeStr: string, returnCtor: undefined | { new(): T }, name: string, ...args: Argument[]): Primitive<T> {
-		const loadedFunc = this.get(name);
+	// returnCtor: return constructor
+	private call<T extends Number | undefined>(retTypeStr: string, returnCtor: undefined | {new(): T}, funcName: string, ...args: Argument[]): Primitive<T> {
+		const loadedFunc = this.get(funcName);
 		if(typeof loadedFunc !== "function") {
-			throw new CallError(`'${name}' is not exported`);
+			throw new CallError(`'${funcName}' is not exported`);
 		}
 		if(loadedFunc.length !== args.length) {
-			throw new CallError(`'${name}' has invalid signature: ${args.length} argument(s) passed, ${loadedFunc.length} argument(s) exported`);
+			throw new CallError(`'${funcName}' has invalid signature: ${args.length} argument(s) passed, ${loadedFunc.length} argument(s) exported`);
 		}
 		const func = <(...args: number[]) => unknown>loadedFunc;
 
@@ -130,23 +129,23 @@ export default class WASM {
 		const value = tryToPrimitive(returnCtor, ret);
 
 		this.debug(
-			`${name}(${args.join(", ")}) -> ` +
+			`${funcName}(${args.join(", ")}) -> ` +
 			(value === undefined ? "void" : `(${retTypeStr})${value}`) +
 			`: ${this.usedGas - prevUsedGas} gas`
 		);
 		return value;
 	}
 
-	callVoid(name: string, ...args: Argument[]): void {
-		return this.call<undefined>("void", undefined, name, ...args);
+	callVoid(funcName: string, ...args: Argument[]): void {
+		return this.call<undefined>("void", undefined, funcName, ...args);
 	}
 
-	callNumber(name: string, ...args: Argument[]): number {
-		return this.call("int", Number, name, ...args);
+	callNumber(funcName: string, ...args: Argument[]): number {
+		return this.call("int", Number, funcName, ...args);
 	}
 
-	callCPtr<T>(type: string | ({prototype: T} & Function), name: string, ...args: Argument[]): CPtr<T> {
+	callCPtr<T>(type: string | ({prototype: T} & Function), funcName: string, ...args: Argument[]): CPtr<T> {
 		const typeStr = (typeof type === "string" ? type : type.name) + "*";
-		return new CPtr<T>(type, this.call(typeStr, Number, name, ...args));
+		return new CPtr<T>(type, this.call(typeStr, Number, funcName, ...args));
 	}
 }

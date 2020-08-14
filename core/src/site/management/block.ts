@@ -54,7 +54,7 @@ export class ManagementBlock implements IConstructable<ManagementBlock> {
 	}
 
 
-	constructWasm(wasm: WASM): CPtr<ManagementBlock> {
+	constructInWasm(wasm: WASM): CPtr<ManagementBlock> {
 		const block = wasm.callCPtr(ManagementBlock, "_mgmtscript_newManagementBlock");
 
 		function fillScript<T extends Script>(ptr: CPtr<Script>, script: T) {
@@ -71,7 +71,7 @@ export class ManagementBlock implements IConstructable<ManagementBlock> {
 		return block;
 	}
 
-	deconstructWasm(wasm: WASM, ptr: CPtr<ManagementBlock>): void {
+	deconstructInWasm(wasm: WASM, ptr: CPtr<ManagementBlock>): void {
 		wasm.callVoid("_mgmtscript_deleteManagementBlock", ptr);
 	}
 

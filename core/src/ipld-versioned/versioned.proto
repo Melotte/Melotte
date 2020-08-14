@@ -1,0 +1,45 @@
+// Melotte object
+syntax = "proto3";
+
+message VersionedBlock {
+  uint32 timestamp = 1;
+  map<uint32, bytes> cids = 6;
+  message Parent {
+    uint32 cid = 1;
+    ParentType type = 2;
+    uint32 size = 3;
+  }
+  repeated Parent parents = 2; // Previous versions of this object
+  message Reference {
+    uint32 cid = 1; // One of the versions of the target object
+    string branchName = 2;
+  }
+  repeated Reference refs = 3;
+  oneof data { // Data of this version
+    uint32 cid = 4;
+    bytes block = 5;
+  }
+  bool explicitBranch = 7; // Explicitly mark this version as a new branch
+  string branchName = 8;   // Optional
+  string tagName = 9;      // To mark important versions
+  uint32 verifierId = 10;
+
+  message Dependency {
+    uint32 cid = 1; // CID of a block
+    bool optional = 2;
+    // Non-optional deps will be downloaded automatically for optimization
+    string name = 3; // Application-specific
+    string type = 4;
+  }
+  message Association { // Related data.
+    uint32 cid = 1;
+    string type = 2; // Arbitrary type defined by application
+  }
+  repeated Dependency dependencies = 11;
+  repeated Association associations = 12;
+}
+
+enum ParentType {
+  raw = 0;
+  versioned = 1;
+}

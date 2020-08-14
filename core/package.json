@@ -1,6 +1,6 @@
 {
-  "name": "planet",
-  "version": "0.0.1",
+  "name": "melotte",
+  "version": "0.1.0",
   "description": "Web 3.0",
   "main": "index.js",
   "author": "Anonymous",
@@ -18,7 +18,7 @@
     "start:prod": "node --experimental-wasm-type-reflection build/bundle.js",
     "jsdoc-tsd": "jsdoc -t node_modules/libp2p*/jsdoc-tsd -r .",
     "clean": "rimraf ./build",
-    "make-tsproto": "cd src && ../node_modules/protoc/protoc/bin/protoc --plugin=../node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=codegen/tsproto --ts_proto_opt=env=node */*/*.proto",
+    "make-tsproto": "cd src && ../node_modules/protoc/protoc/bin/protoc --plugin=../node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=codegen/tsproto --ts_proto_opt=env=node **/*.proto",
     "postinstall": "patch-package"
   },
   "dependencies": {
@@ -45,7 +45,7 @@
     "mafmt": "git+https://github.com/Melotte/js-mafmt.git#v7.1.0-patched",
     "merge-options": "^2.0.0",
     "multiaddr": "git+https://github.com/Melotte/js-multiaddr.git#v7.5.0-patched",
-    "multicodec": "^1.0.4",
+    "multicodec": "git+https://github.com/Melotte/js-multicodec#2.0.0-patched",
     "p-timeout": "^3.2.0",
     "peer-id": "^0.13.13",
     "typical": "^6.0.1",
@@ -59,6 +59,9 @@
     "@types/events": "^3.0.0",
     "@types/interface-datastore": "^1.0.1",
     "@types/node": "^14.0.23",
+    "@typescript-eslint/eslint-plugin": "^3.9.0",
+    "@typescript-eslint/parser": "^3.9.0",
+    "eslint": "^7.6.0",
     "patch-package": "^6.2.2",
     "protoc": "^1.0.4",
     "rimraf": "^3.0.2",

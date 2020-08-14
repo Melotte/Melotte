@@ -1,6 +1,6 @@
 # Melotte Protocol
 
-Melotte is a decentralized application platform and framework, based on libp2p. In contrast to recent novel decentralized networks, Planet focuses on the original purpose of P2P, to bring privacy and anonymity.
+Melotte is a decentralized application platform and framework, based on libp2p. In contrast to recent novel decentralized networks, Melotte focuses on the original purpose of P2P, to bring privacy and anonymity.
 
 An overview of the whole protocol stack (bottom-up):
 

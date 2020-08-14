@@ -1,0 +1,7 @@
+node_modules
+codegen
+build
+data
+patches
+scripts
+**/*.js

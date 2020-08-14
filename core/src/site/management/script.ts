@@ -9,10 +9,10 @@ export enum Language {
 	wasm = 1
 }
 
-
+// Constructable in wasm
 export interface IConstructable<T> {
-	constructWasm(wasm: WASM): CPtr<T>;
-	deconstructWasm(wasm: WASM, ptr: CPtr<T>): void;
+	constructInWasm(wasm: WASM): CPtr<T>;
+	deconstructInWasm(wasm: WASM, ptr: CPtr<T>): void;
 }
 
 type Constructable<T = unknown> = number | IConstructable<T>;
@@ -56,7 +56,7 @@ export default class Script<FuncName extends string = string, Args extends Const
 			} else {
 				return {
 					arg,
-					ptr: arg.constructWasm(wasm)
+					ptr: arg.constructInWasm(wasm)
 				};
 			}
 		});
@@ -74,7 +74,7 @@ export default class Script<FuncName extends string = string, Args extends Const
 		// Free memory
 		for(const obj of toFree) {
 			if(obj.ptr !== undefined) {
-				obj.arg.deconstructWasm(wasm, obj.ptr);
+				obj.arg.deconstructInWasm(wasm, obj.ptr);
 			}
 		}
 

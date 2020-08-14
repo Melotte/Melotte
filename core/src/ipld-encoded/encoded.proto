@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+message EncodedBlock {
+  message codec {
+    DeltaType delta = 1;
+    CompressionType compression = 2;
+  }
+  message Action {
+    oneof action {
+      CopyAction copy = 1;
+      InsertAction insert = 2;
+    }
+  }
+  map<uint32, bytes> cids = 1;
+  repeated Action actions = 2;
+  repeated Link links = 3;
+  bool encrypted = 4;
+  uint32 encryptionAlg = 5; 
+}
+
+message Link {
+  uint32 cid = 1; // CID, not multihash
+  string name = 2;
+  uint64 size = 3; // Tree size
+}
+
+enum DeltaType {
+  plaintext = 0;
+  binary = 1;
+}
+
+message CopyAction {
+  uint32 base = 1;
+  uint32 offset = 2;
+  uint32 length = 3;
+}
+
+message InsertAction { bytes data = 1; }
+
+enum CompressionType { zlib = 0; }
