@@ -1,0 +1,1 @@
+// Encode objects to encodedBlock

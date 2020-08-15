@@ -7,14 +7,15 @@ import {codec, defaultHashAlg} from "./genCid"
 class IPLDVersionedBlock implements IPLDFormat<IVersionedBlock> {
 	resolver = {
 		resolve(buf: Buffer, path: string) {
-			const node = VersionedBlock.util.deserialize(buf)
+			let node = VersionedBlockFormat.util.deserialize(buf)
 			const parts = path.split('/').filter(Boolean)
 			while(parts.length) {
 				const key = parts.shift()
+				if(!key)
+					continue
 				if(node[key] === undefined) {
 					throw new Error(`Object has no property '${key}'`)
 				}
-
 				node = node[key]
 				if(CID.isCID(node)) {
 					return {
@@ -29,18 +30,18 @@ class IPLDVersionedBlock implements IPLDFormat<IVersionedBlock> {
 				remainderPath: ''
 			}
 		},
-		*tree() {
-			const node = VersionedBlock.util.deserialize(binaryBlob)
-			yield* VersionedBlock.resolver.traverse(node)
+		async *tree(binaryBlob: Buffer): AsyncGenerator<string> {
+			const node = VersionedBlockFormat.util.deserialize(binaryBlob)
+			yield* VersionedBlockFormat.resolver.traverse(node)
 		},
-		*traverse(obj: Object, path: string) {
+		*traverse(obj: Object, path?: string) {
 			if(obj instanceof Uint8Array || CID.isCID(obj) || typeof obj === 'string' || obj === null) {
 				return
 			}
 			for(const item of Object.keys(obj)) {
 				const nextpath = path === undefined ? item : path + '/' + item
 				yield nextpath
-				yield* traverse(obj[item], nextpath)
+				yield* VersionedBlockFormat.resolver.traverse(obj[item], nextpath)
 			}
 		}
 	};
@@ -59,6 +60,6 @@ class IPLDVersionedBlock implements IPLDFormat<IVersionedBlock> {
 	defaultHashAlg = defaultHashAlg;
 }
 
-const VersionedBlock = new IPLDVersionedBlock()
+const VersionedBlockFormat = new IPLDVersionedBlock()
 
-export {VersionedBlock}
+export = VersionedBlockFormat

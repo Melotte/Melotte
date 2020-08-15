@@ -3,16 +3,18 @@ syntax = "proto3";
 
 message VersionedBlock {
   uint32 timestamp = 1;
-  map<uint32, bytes> cids = 6;
+  map<uint32, bytes> cids = 6; // Reused cids
   message Parent {
     uint32 cid = 1;
-    ParentType type = 2;
+    BlockType blockType = 2;
     uint32 size = 3;
+    string type = 4;
   }
   repeated Parent parents = 2; // Previous versions of this object
   message Reference {
-    uint32 cid = 1; // One of the versions of the target object
-    string branchName = 2;
+    uint32 cid = 1;             // One of the versions of the target object
+    string branchName = 2;      // As a new branch of this object
+    string referenceBranch = 3; // master branch by default
   }
   repeated Reference refs = 3;
   oneof data { // Data of this version
@@ -22,16 +24,19 @@ message VersionedBlock {
   bool explicitBranch = 7; // Explicitly mark this version as a new branch
   string branchName = 8;   // Optional
   string tagName = 9;      // To mark important versions
-  uint32 verifierId = 10;
+  uint32 verifierId = 10;  // ID of the verifier for this block in mgmt chain
 
+  // This can be viewed as important associations, which will be downloaded by
+  // melotte
+  // Non-optional deps will be downloaded automatically for optimization
   message Dependency {
     uint32 cid = 1; // CID of a block
     bool optional = 2;
-    // Non-optional deps will be downloaded automatically for optimization
     string name = 3; // Application-specific
     string type = 4;
   }
-  message Association { // Related data.
+  // Association is a preview of all the links this block has
+  message Association {
     uint32 cid = 1;
     string type = 2; // Arbitrary type defined by application
   }
@@ -39,7 +44,7 @@ message VersionedBlock {
   repeated Association associations = 12;
 }
 
-enum ParentType {
-  raw = 0;
-  versioned = 1;
+enum BlockType {
+  raw = 0;       // Any blocks from IPLD
+  versioned = 1; // VersionedBlock
 }

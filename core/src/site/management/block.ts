@@ -60,7 +60,7 @@ export class ManagementBlock implements IConstructable<ManagementBlock> {
 		function fillScript<T extends Script>(ptr: CPtr<Script>, script: T) {
 			wasm.callVoid("_mgmtscript_setScriptLanguage", ptr, script.language);
 			const codePtr = wasm.callCPtr("char[]", "_mgmtscript_initializeScriptCode", ptr, script.code.length);
-			wasm.copy(script.code, codePtr);
+			wasm.copyFrom(script.code, codePtr);
 		}
 
 		fillScript(

@@ -34,7 +34,7 @@ export default class WASM {
 	private usedGas = 0;
 	private debug: debug.Debugger;
 
-	private static id: number = 1;
+	private static id = 1;
 
 
 	private constructor(private instance: WebAssembly.Instance, id: number, memory: WebAssembly.Memory) {
@@ -43,7 +43,7 @@ export default class WASM {
 	}
 
 
-	copy(from: Buffer, to: CPtr): void {
+	copyFrom(from: Buffer, to: CPtr): void {
 		this.memory.set(from, to.value);
 	}
 
