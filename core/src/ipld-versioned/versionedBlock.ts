@@ -24,6 +24,7 @@ export class VersionedBlock {
     // Instantiated types
     timestamp: Date;
     cid?: CID;
+    cidData?: CID;
     // Links
     parents: Parent[];
     refs: Reference[];
@@ -40,6 +41,8 @@ export class VersionedBlock {
             this.#cids.set(parseInt(i), new CID(originalBlock.cids[i]))
         if(originalBlock.cid)
             this.cid = this.#cids.get(originalBlock.cid)
+        if(originalBlock.cidData)
+            this.cidData = this.#cids.get(originalBlock.cidData)
         this.parents = originalBlock.parents.map(v => <Parent>{...v, cid: this.#cids.get(v.cid)})
         this.refs = originalBlock.refs.map(v => <Reference>{...v, cid: this.#cids.get(v.cid)})
         this.dependencies = originalBlock.dependencies.map(v => <Dependency>{...v, cid: this.#cids.get(v.cid)})
@@ -116,3 +119,4 @@ export class Reference {
      */
     referenceBranch: string;
 }
+

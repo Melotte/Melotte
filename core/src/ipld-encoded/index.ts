@@ -51,7 +51,6 @@ class IPLDEncodedBlock implements IPLDFormat<EncodedBlock> {
 			const node = EncodedBlockFormat.util.deserialize(binaryBlob)
 			for(const item of Object.keys(this))
 				yield item
-			// Data is not directly accesible here
 			for(let ii = 0; ii < node.links.length; ii++) {
 				yield `links/${ii}`
 				yield `links/${ii}/name`

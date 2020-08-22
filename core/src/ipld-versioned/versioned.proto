@@ -17,10 +17,12 @@ message VersionedBlock {
     string referenceBranch = 3; // master branch by default
   }
   repeated Reference refs = 3;
-  oneof data { // Data of this version
-    uint32 cid = 4;
-    bytes block = 5;
+  oneof data {       // Data of this version
+    uint32 cid = 4;  // Cid of the encodedBlock, compatible with bitswap
+    bytes block = 5; // Can't be archived if using this field
   }
+  uint32 cidData = 13;     // Cid of the actual data (which will be used in the
+                           // future as the default DHT key). Also for archiving
   bool explicitBranch = 7; // Explicitly mark this version as a new branch
   string branchName = 8;   // Optional
   string tagName = 9;      // To mark important versions

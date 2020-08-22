@@ -24,11 +24,6 @@ export default class ManagementChain {
 	}
 
 
-	destroy() {
-		this.channel.unsubscribe(this.channelTopic);
-	}
-
-
 	channelHandler(cidBuffer: Buffer): void {
 		const cid = new CID(cidBuffer);
 		this.loadDiscoveredBlock(new Ref<ManagementBlock>(cid));

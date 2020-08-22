@@ -12,21 +12,21 @@ export class ChannelManager {
 				throw new ChannelError("Default protocol missing")
 	}
 	on(topic: string, handler: (Buffer) => void, options?: options): void {
-		let opts = options ? options : this.defaultOptions
+		const opts = options ? options : this.defaultOptions
 		if(opts.onlyDefault)
 			this.protocols.get(opts.defaultChannel)!.on(topic, handler)
 		else
 			this.protocols.forEach(p => p.on(topic, handler))
 	}
 	unsubscribe(topic: string, options?: options): void {
-		let opts = options ? options : this.defaultOptions
+		const opts = options ? options : this.defaultOptions
 		if(opts.onlyDefault)
 			this.protocols.get(opts.defaultChannel)!.unsubscribe(topic)
 		else
 			this.protocols.forEach(p => p.unsubscribe(topic))
 	}
 	async send(topic: string, message: Buffer, options?: options): Promise<void> {
-		let opts = options ? options : this.defaultOptions
+		const opts = options ? options : this.defaultOptions
 		if(opts.onlyDefault)
 			this.protocols.get(opts.defaultChannel)!.send(topic, message)
 		else

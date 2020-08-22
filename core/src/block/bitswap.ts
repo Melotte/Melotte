@@ -10,7 +10,7 @@ export default class BitswapProtocol extends BlockProtocol {
 		super()
 		this.bitswap = new Bitswap(this.blockManager.libp2p, this.blockManager.repo.blocks, {statsEnabled: true})
 	}
-	async init() {
+	async init(): void {
 		await this.bitswap.start()
 	}
 	async put(block: IPLDBlock, options?): Promise<IPLDBlock> {

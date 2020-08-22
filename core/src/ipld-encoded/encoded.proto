@@ -15,7 +15,7 @@ message EncodedBlock {
   repeated Action actions = 2;
   repeated Link links = 3;
   bool encrypted = 4;
-  uint32 encryptionAlg = 5; 
+  uint32 encryptionAlg = 5;
 }
 
 message Link {

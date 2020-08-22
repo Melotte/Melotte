@@ -1,5 +1,5 @@
 import Ref from "../ref";
-import Script, {IConstructable, InvalidScriptError} from "./script";
+import WasmFunc, {IConstructable, InvalidScriptError} from "./script";
 import {ManagementBlock as IManagementBlock} from "../../codegen/tsproto/site/management/chain";
 import Storage from "../../storage";
 import debug from "debug";
@@ -14,7 +14,7 @@ export class ManagementBlock implements IConstructable<ManagementBlock> {
 	private constructor(
 		private chain: ManagementChain,
 		public ref: Ref<ManagementBlock>,
-		public managementVerifier: Script<"verify", [ManagementBlock, ManagementBlock], Boolean>,
+		public managementVerifier: WasmFunc<"verify", [ManagementBlock, ManagementBlock], Boolean>,
 		public metadata: {[key: number]: Buffer},
 		public parent?: Ref<ManagementBlock>
 	) {
@@ -57,14 +57,14 @@ export class ManagementBlock implements IConstructable<ManagementBlock> {
 	constructInWasm(wasm: WASM): CPtr<ManagementBlock> {
 		const block = wasm.callCPtr(ManagementBlock, "_mgmtscript_newManagementBlock");
 
-		function fillScript<T extends Script>(ptr: CPtr<Script>, script: T) {
+		function fillScript<T extends WasmFunc>(ptr: CPtr<WasmFunc>, script: T) {
 			wasm.callVoid("_mgmtscript_setScriptLanguage", ptr, script.language);
 			const codePtr = wasm.callCPtr("char[]", "_mgmtscript_initializeScriptCode", ptr, script.code.length);
 			wasm.copyFrom(script.code, codePtr);
 		}
 
 		fillScript(
-			wasm.callCPtr(Script, "_mgmtscript_getManagementVerifier", block),
+			wasm.callCPtr(WasmFunc, "_mgmtscript_getManagementVerifier", block),
 			this.managementVerifier
 		);
 
@@ -84,7 +84,7 @@ export class ManagementBlock implements IConstructable<ManagementBlock> {
 			throw new Error("Management verification script is missing");
 		}
 
-		const managementVerifier = Script.fromInterface<[ManagementBlock]>()("verify", Boolean, block.managementVerifier);
+		const managementVerifier = WasmFunc.fromInterface<[ManagementBlock]>()("verify", Boolean, block.managementVerifier);
 
 		return new ManagementBlock(
 			chain,
@@ -110,7 +110,7 @@ export function encodeGenesisBlock(data: IManagementBlockData): Buffer {
 
 
 export interface IManagementBlockData {
-	managementVerifier: Script<"verify", [ManagementBlock], Boolean>;
+	managementVerifier: WasmFunc<"verify", [ManagementBlock], Boolean>;
 	// topicVerifier: Script<"verify", [Topic], Boolean>;
 	// versionVerifier: Script<"verify", [Topic, Version], Boolean>;
 	metadata: {[key: number]: Buffer};

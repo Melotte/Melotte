@@ -21,8 +21,7 @@ type Constructable<T = unknown> = number | IConstructable<T>;
 export class InvalidScriptError extends Error {
 }
 
-
-export default class Script<FuncName extends string = string, Args extends Constructable[] = Constructable[], R = unknown> {
+export default class WasmFunc<FuncName extends string = string, Args extends Constructable[] = Constructable[], R = unknown> {
 	private debug: debug.Debugger;
 
 
@@ -110,7 +109,7 @@ export default class Script<FuncName extends string = string, Args extends Const
 
 	static fromInterface<Args extends Constructable[]>() {
 		return function<FuncNameT extends string, T>(funcName: FuncNameT, returnCtor: new() => T, script: IScript) {
-			return new Script<FuncNameT, Args, T>(funcName, returnCtor, script.language, script.code);
+			return new WasmFunc<FuncNameT, Args, T>(funcName, returnCtor, script.language, script.code);
 		};
 	}
 }

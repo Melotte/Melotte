@@ -37,7 +37,7 @@ export default class Repo {
 
 	async initExisitingRepo(newConfig: Config) {
 		this.config = <Config>await this.repo.config.getAll()
-		let merged = mergeOptions(this.config, newConfig)
+		const merged = mergeOptions(this.config, newConfig)
 		if(!deepEqual(merged, this.config))
 			await this.repo.config.replace(this.config = merged)
 		this.peerID = await PeerId.createFromPrivKey(this.config.Identity!.PrivKey)

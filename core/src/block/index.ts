@@ -24,26 +24,26 @@ class BlockManager {
 	async init(protocols: BlockProtocol[], formats: IPLDFormat<any>[], options?: options) {
 		for(const proto of protocols)
 			this.blockProtocols.set(proto.protocolName, proto)
-		for(let [name, proto] of this.blockProtocols)
+		for(const [name, proto] of this.blockProtocols)
 			await proto.init()
 		this.defaultOptions = {include: Array.from(this.blockProtocols.keys()), repoOnly: false, noExternal: false, ...options}
-		let mergedOptions = this.mergeOptions(options)
+		const mergedOptions = this.mergeOptions(options)
 		if(mergedOptions.noExternal)
 			this.defaultOptions.include = ["bitswap"]
-		for(let format of formats)
+		for(const format of formats)
 			this.addFormat(format)
 	}
 	async getBlock(cid: CID, options?: options): Promise<IPLDBlock> {
-		let mergedOptions = this.mergeOptions(options)
-		let protos = this.filterProtocols(mergedOptions),
+		const mergedOptions = this.mergeOptions(options)
+		const protos = this.filterProtocols(mergedOptions),
 			filtered = protos.map(([k, p]) => p.get(cid, mergedOptions))
 		if(this.hasBitswap(protos))
 			filtered.push(this.blockProtocols.get("bitswap")!.get(cid, mergedOptions))
 		else
 			filtered.push(this.repo.blocks.get(cid))
 		if(filtered.length > 0) {
-			let block: IPLDBlock = await Promise.race(filtered)
-			let format: IPLDFormat<any> = this.getFormat(block.cid.codec)
+			const block: IPLDBlock = await Promise.race(filtered)
+			const format: IPLDFormat<any> = this.getFormat(block.cid.codec)
 			return format.util.deserialize(block.data)
 		} else
 			throw new BlockError("No protocol available")
@@ -54,17 +54,17 @@ class BlockManager {
 		return format.util.deserialize(block.data)
 	}
 	async *getBlocks(cids: CID[], options?: options): AsyncGenerator<IPLDBlock> {
-		let mergedOptions = this.mergeOptions(options)
-		let protocols = this.filterProtocols(mergedOptions)
+		const mergedOptions = this.mergeOptions(options)
+		const protocols = this.filterProtocols(mergedOptions)
 		if(protocols.length > 0)
-			for(let cid of cids) {
-				let ps = protocols.map(([k, p]) => p.get(cid, mergedOptions))
+			for(const cid of cids) {
+				const ps = protocols.map(([k, p]) => p.get(cid, mergedOptions))
 				if(this.hasBitswap(protocols))
 					ps.push(this.blockProtocols.get("bitswap")!.get(cid, mergedOptions))
 				else
 					ps.push(this.repo.blocks.get(cid))
-				let block: IPLDBlock = await Promise.race(ps)
-				let format: IPLDFormat<any> = this.getFormat(block.cid.codec)
+				const block: IPLDBlock = await Promise.race(ps)
+				const format: IPLDFormat<any> = this.getFormat(block.cid.codec)
 				yield format.util.deserialize(block.data)
 			}
 		else
@@ -80,8 +80,8 @@ class BlockManager {
 		return extendIterator(generator())
 	}
 	async putBlock(block: IPLDBlock, options?: options): Promise<IPLDBlock | void> {
-		let mergedOptions = this.mergeOptions(options)
-		let protos = this.filterProtocols(mergedOptions),
+		const mergedOptions = this.mergeOptions(options)
+		const protos = this.filterProtocols(mergedOptions),
 			filtered = protos.map(([k, p]) => p.put(block, mergedOptions))
 		if(this.hasBitswap(protos))
 			filtered.push(this.blockProtocols.get("bitswap")!.put(block))
@@ -104,10 +104,10 @@ class BlockManager {
 	}
 	async *putBlocks(blocks: IPLDBlock[], options?: options): AsyncGenerator<IPLDBlock> {
 		options = this.mergeOptions(options)
-		let protocols = this.filterProtocols(options)
+		const protocols = this.filterProtocols(options)
 		if(protocols.length > 0)
-			for(let block of blocks) {
-				let ps = protocols.map(([k, p]) => p.put(block, options))
+			for(const block of blocks) {
+				const ps = protocols.map(([k, p]) => p.put(block, options))
 				if(this.hasBitswap(protocols))
 					ps.push(this.blockProtocols.get("bitswap")!.put(block))
 				else
@@ -120,7 +120,7 @@ class BlockManager {
 	putNodes<N>(nodes: Iterable<N>, format: number, options?: formatOptions & options): Iterator<Promise<CID>> {
 		if(!typical.isIterable(nodes) || typeof nodes === 'string' || Buffer.isBuffer(nodes))
 			throw new BlockError('`nodes` must be an iterable')
-		let gen = async function* () {
+		const gen = async function* () {
 			for await(const node of nodes) {
 				yield this.putNode(node, format, options)
 			}
@@ -163,7 +163,7 @@ class BlockManager {
 		throw new BlockError("Format not supported or loaded")
 	}
 
-	resolve(cid: CID | null, path: string, options?: options): Iterator<Promise<CID>> {
+	resolve(cid: CID | null, path: string, options?: options): Iterator<Promise<{remainderPath: string, value: CID | null}>> {
 		const generator = async function* () {
 			// End iteration if there isn't a CID to follow anymore
 			while(cid !== null) {

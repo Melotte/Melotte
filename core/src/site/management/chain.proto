@@ -1,23 +1,29 @@
 syntax = "proto3";
 
+enum Language {
+  undefined = 0;
+  wasm = 1;
+}
+
 message Script {
-  enum Language {
-    undefined = 0;
-    wasm = 1;
-  }
   Language language = 1;
   bytes code = 2;
 }
 
-message ManagementBlock {
-  bytes parent = 1;
-  bytes distinguisher = 2;
-  Script managementVerifier = 3;
-  map<uint32, bytes> metadata = 4;
+message ExternalScript {
+  Language language = 1;
+  bytes cid = 2; // object
+}
 
-  // Script topic_verifier = 5;
-  // Script version_verifier = 6;
-  bytes signer = 9;
+message ManagementBlock {
+  repeated bytes parents = 1; // Parents acknowledged by this block
+  bytes distinguisher = 2;    // Random bytes of arbitrary length
+  Script managementVerifier = 3;
+  map<int32, Script> dataVerifier = 4;
+  // Data verifiers for different types of object
+  Backend backend = 5;
+  bytes propagation = 6; // In case pubsub doesn't work
+  bytes signer = 9; // Still required, although we have signatures in channel.
   bytes signature = 10;
   uint32 encryptionAlg = 11;
 
@@ -27,4 +33,11 @@ message ManagementBlock {
 message SiteInfo {
   string title = 1;
   repeated string domainCandidates = 2;
+}
+
+message Backend {
+  ExternalScript serve = 1;   // Serve web page
+  ExternalScript init = 2;    // After downloading the site
+  ExternalScript destroy = 3; // Deleting the site
+  ExternalScript update = 4;  // When new data arrives
 }

@@ -3,8 +3,9 @@ import {cid} from "./genCid"
 import {VersionedBlock as IVersionedBlock} from "../codegen/tsproto/ipld-versioned/versioned"
 import CID from "cids"
 import {codec, defaultHashAlg} from "./genCid"
+import {VersionedBlock} from "./versionedBlock"
 
-class IPLDVersionedBlock implements IPLDFormat<IVersionedBlock> {
+class IPLDVersionedBlock implements IPLDFormat<VersionedBlock> {
 	resolver = {
 		resolve(buf: Buffer, path: string) {
 			let node = VersionedBlockFormat.util.deserialize(buf)
@@ -46,11 +47,12 @@ class IPLDVersionedBlock implements IPLDFormat<IVersionedBlock> {
 		}
 	};
 	util = {
-		serialize(node: IVersionedBlock): Buffer {
-			return Buffer.from(IVersionedBlock.encode(node).finish())
+		serialize(node: VersionedBlock): Buffer {
+			const n = node.toProtoBuf()
+			return Buffer.from(IVersionedBlock.encode(n).finish())
 		},
-		deserialize(buf: Buffer): IVersionedBlock {
-			return IVersionedBlock.decode(buf)
+		deserialize(buf: Buffer): VersionedBlock {
+			return new VersionedBlock(IVersionedBlock.decode(buf))
 		},
 		async cid(buf, options): Promise<CID> {
 			return cid(buf, options)
