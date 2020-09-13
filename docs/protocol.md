@@ -58,6 +58,8 @@ Both *IPFS blocks and dag* are a part of *block protocol*.
 
 > The abstraction of block and channel protocols are based on existing implementations. Channel is only one of the propagtion protocols.
 
+We don't use 'pubsub' for channel protocol because we could have other things to be channel protocols. A 'legal' messaging software in some censored country can be a channel. Centralized web sites can be block protocols, which is a better alternative to a Melotte gateway. The site here is not seen as a node, because it has only block protocol, such that it is easier to deploy and maintain on the other hand.
+
 ## Channel protocol
 
 Channel protocol are used for two purposes:
@@ -85,6 +87,8 @@ message PropagationPayload {
   bytes packed = 2;
 }
 ```
+
+In some difficult circumstances, where the connectivity of the global network is limited, we may use channel protocol to resolve CIDs, but only in small scale. Gossip protocol is more resistant as it doesn't reveal the addresses of other peers, which makes it impossible to do so-called 'collect IPs and ban'.
 
 ### Propagation protocol
 
@@ -378,7 +382,7 @@ Some common site management methods:
 
 ### Objects
 
-An object is a series of versions which are VersionedBlocks. It is meaningful only when its site is present. Objects need a site as the topic name of the channel to receive further versions, so there shouldn't be isolated objects. Object can have *references*, which mirrors some branch of the target object as a single branch. This is not git reference. Reference is marked by some fields in a version of an object, including the address of the target site, and the CID of one of the versions of the object. The virtual branch is created using that version as the common parent. Git-like branching system can be implemented via data script, which decides the current value of an object. Reference is always about a specific branch of an object, as there could be other branches parallel to the referenced branch, having common ancestors.
+An object is a series of versions which are VersionedBlocks. It is meaningful only when its site is present. Objects need a site as the topic name of the channel to receive further versions, so there shouldn't be isolated objects. Object can have *references*, which mirrors some branch of the target object as a single branch. This is not git reference. Reference is marked by some fields in a version of an object, including thewhy mining pool gets bigger address of the target site, and the CID of one of the versions of the object. The virtual branch is created using that version as the common parent. Git-like branching system can be implemented via data script, which decides the current value of an object. Reference is always about a specific branch of an object, as there could be other branches parallel to the referenced branch, having common ancestors.
 
 Version-object structure is similar to git, but not exactly. We aim to offer versioning feature while keeping maximum flexibility. A default data script is provided to deal with branching issue.
 
@@ -458,12 +462,6 @@ When we have a CID of a `DataBlock` which we received from a trusted peer, we do
 
 The idea of web of trust is that, the only trustworhy person is yourself. Web of trust is subjective, which forms a different directed graph for each peer. Let the count peers you directly trust be N1, and the count of peers trusted by each peer you trust be respectively M[1], M[2], ... , M[N1]. So, in the third layer, the trustworhiness of the first peer is 1/N1/M[1]. Peers trusting each other on the same layer are counted. A peer on a layer trusts several other peers. They get the same trustworhiness if they don't trust each other, or they trust all each other. The peers trusted by more peers on the same layer get a higher *share* of trustworhiness arranged for that layer. Peers on nearer layers can trust the peers on further layers, from that peer's perspective, which means the reverse trust is not counted. Such a cross-layer trust is actually about how we treat layers. In fact, one peer can be on multiple layers, and obviously the trustworthiness is calculated individually and added up afterwards.
 
-The list of trusted peers are derived from
-
-1. User specified peers (when the user manually blocks someone, or marks as trusted via a site)
-2. Peer reputation (calculated from the behaviour of a peer, mainly about download and upload ratio)
-
-These two ways we get a WoT enable us to use it both in low-level protocols and in applications.
 Announcing a trust record is similar to normal site content, but the validation is handled by Melotte.
 
 ```typescript
@@ -476,6 +474,16 @@ interface TrustRecord { // Encoded data on datablock
 > Blockchain is not censorship-resistant, however.
 
 WoT is not a site, but a part of the core. There is a UI for managing WoT, which resides in the site that distributes WoT records. The records of someone are not downloaded until being trusted or distrusted. Applications may trust other users automatically based on the behavior of the user, simplifying the usage of WoT. All applications share the WoT data, along with lower protocols, which creates the possibility of abusing WoT. To address this, a comprehensive permission mangement system against applications is needed.
+
+There're two types of trust
+
+- Weak trust, indirect interaction, from the statistics of transport protocols, and other automatically derived parameters.
+  - Direct interaction but automatic, eg. completing a captcha from a user.
+- Strong trust, direct interaction, when the user manually trusts someone.
+
+We mainly use weak trust, since it is rare to get strong trust data. Following every person you see is boring and unnecessary, which is also why most WoT based networks fail in the past. The other type of weak trust is to the peers you don't transfer files directly but indirectly met on a same site. For instance, when you browse through a social network, a forum, if you don't block some user, the user is implicitly weak-trusted. This means WoT is best to be verbose, that is to say, a peer should reveal all its known information. A peer may either trust, block, or be neutral to another peer. Weak trust is better than neutral as long as there's any information. Implicit trusting all non-explicitly-blocked peers might mistakenly include spammers, which doesn't matter as we have a *web* of trust, that any strong trust blocking someone in the network overrides the weak trust. This makes joining a WoT much easier. Send some reasonable messages on a site, and you get some weak trust. A spammer is immediately banned once he starts to advertise, because anyone in the WoT can override the weak trust. Weak trust can be distributed with more conditions, the activity of a user, the frequency of posting, a blocklist of all undesired words of the user, and even an AI to detect bots. Weak trust is the result of computation of an individual peer, which forms a network of spam filtering system. A site may also set a higher entering requirement of trust value, making weak trust insignificant for this site.
+
+DHT distributes the records of blocks equally among all peers, including those untrusted peers. In WoT, the peers trusting some other peer are more likely to have his objects. Trusting means the peer has at least interacted with another peer, such as downloading that peer's user data on a site.
 
 ### Naming
 
@@ -510,21 +518,43 @@ The form of user group name provider is a kind of delegated trust. The user can 
 
 WoT based spam defense are applied on higher layers, block protocol and site content. When exchanging blocks, peers with higher trustworhiness are prioritized, which is increased by user or automatically set according to the behaviour of the peer. Normally, user specified trust records have much higher weight. On application layer, the content shown to the user is based on WoT and site itself. Since the user implicitly trust the site when visiting it, the site has the right to ajust the ratio and influence of WoT evaluation result. The actual problem is about protocols, where you can't rely on human decision. WoT prioritizes known and trusted peers, while there might be DoS attack consuming limited bandwidth remaining for new comers.
 
-One possible solution is to ask the requester peer for a captcha, or even user-specified challenge. If the peer passes the challenge, he gets the trust, less or more, from the challenger. In other words, he joined the Web of Trust, since the requester is also trusted by others. Depending on the difficulty of captcha and the circumstances of the challenger, or WoT, he may need to do one or multiple captchas.
-
-Content what the user disliked and marked as spam are not shown later. The *perference record*, which states the opinion of the user about what blocks are spam and what are not. The target of a preference record can be an object, eg. a blog post comment, a user, or a site. Depending on the site, if it is possible to remove these blocks without breaking the site, these blocks are unseeded and future downloading attempts are warned. Another option is to keep the blocks, but no longer announced, which doesn't break the site locally. This is acutally non-sense, because when there're enough peers who stop seeding it, the site becomes broken automatically. A non-blacklisted comment quoting a comment of a blacklisted user. To not get a broken comment, we may download that block in this case.
-
-The result of WoT evaluation is also applied on this.
+One possible solution is to ask the requester peer for a captcha, or even user-specified challenge. If the peer passes the challenge, he gets the trust, less or more, from the challenger. In other words, he joined the Web of Trust, since the requester is also trusted by others. Depending on the difficulty of captcha and the circumstances of the challenger, or WoT, he may need to do one or multiple captchas from one or more users.
 
 ### Distributed search
+
+Distributed search is performed after a local search.
 
 Due to the efficiency of possible DoS on it, this may happen only within WoT. To search on a site, or all sites, the requester sends a search request on channel, and collects and sorts the search results sent by other peers. The ranking algorithm can be based on evalutated trust value and seeder count, which is a natural metric in dweb, or combined with other methods like PageRank. No blockchain economics strategy is applied for obvious reasons explained below. In case anyone thinks some item is good or bad, he could mark it to increase or decrease the trust value of the peers responsible for that item. When the user starts a search, the request is sent over channel protocol. Any peer wiiling to on condition that there aren't enough results for this search would return a list of result individually, ranked according to seeder count etc. For the next page, the user has to send another request. The final list is aggregated from collected lists and sorted by trust value. The amount of trust is decreased or increased is relevant to the position of the item or how much the peer advocates it.
 
 The evaluation of WoT should be 'separated' for different purposes. For example, some users prefer detailed content as beginners for some topic, but as experts in other topics, with different preference. We shouldn't distrust that peer for this reason. So the peer should pass some preference arguments when searching, which is inferred during prior user responses. The responding peers are given more chances if the user preference is undetermined. For later requests, the results should match the preference since we've provided such a hidden parameter, or otherwise the peers can be safely distrusted then. The same applies to all kinds of content sorting. Peers are responsible for tagging content, such as NSFW, and other tags some people dislike. This produces a situation that some content are served but not displayed, which is intended and limited on size.
 
+A search request contains the signature and preference data of the requester, paging data, and TTL. In case anyone wants to the search the entire network, he can start a long-term search, which includes the fields to prevent repeated responses. In other words, search may act as a crawler.
+
+#### Structured algorithm
+
+Many decentralized search engines use a broadcasting search strategy, which leads to exponential growth of requests. For any query, there should be a way to locate a subset of peers who are more possible to have the desired result. Most requests can be optimized with those decentralized indices.
+
+Target of a search:
+
+- Local sites, objects
+- Non-downloaded sites
+- Non-downloaded objects from a site
+- Related objects for a known object
+- Distributed indices
+
+For non-downloaded sites, we need network-wide indices to locate the desired results. When a hit is found in a site either locally or by delegated peers, since the data within a site is usually related, the rest of the site is searched too, for there might be better results than the found one. An object has all its links used in its content listed, so there won't be an extra step of extracting links from the content.
+
+TODO: Decentralized indexing algorithm
+
 ### Feed
 
 If search is considered initiative, then feed is passive. As how WoT does, feed also happens in WoT, and is a core component of melotte. A site uses channel protocol to release updates, but the underlying network is not guaranteed to be as large as melotte network. Furthermore, a user who hasn't joined some site can't receive its updates. Feed can be seen as a site in some way. However, for this type of site, it should be specialized and integrated into the core. We don't want to see many competing sites for this feature, which splits the network, causing many unnecessary problems. Feed is fundamentally different from site channels. Notifications from a site are processed and filtered by the site. Feed works on the basis of users, which is exactly the same way search does. The content of feed depends on the WoT, the users you trust, not the site. It won't be boring release notes from sites, but distinct unique feeds published and composed by your WoT. In order to prevent feed being abused like social networks, the tolerance of spam is default to be very low. There won't be feed comments, feed upvotes, which makes the network less reliable and performat. This allows feed to work even by polling on DHT with existing knowledge of WoT peers.
+
+Feed is a service from Melotte. It can have different frontends, and be used by sites to have additional features. The backend of feed always remain the same, as it serves only as a basic protocol. Both feed and search can be extended by a site, to have comments, ratings, but the basic protocol supports only non-aggregated data from beginning to end.
+
+### Privacy
+
+WoT naturally advocates using one single identity, or otherwise you could only get some weak trust. It is ok to be anonymous but not feasible to be non-traceable, since WoT is trustful, unlike the trustless blockchain. A user has to be traceable to get trusted. Activities like search require sending preference information, which increases the probability of getting desired result. You may also disable this, but the search would be less useful.
 
 ## Permission
 
@@ -551,6 +581,14 @@ Types of priviledges:
 - Access to core functionalities, eg. WoT, search
 - Install/Remove plugins
 - System IO, etc.
+- Internet access
+
+An object or a site may have a WWW link specified. If the user has configured to allow the use of centralized network, the link is used as a block protocol. A site may also request a block with a WWW link, especially for a decentralized package manager. The link isn't necessarily fixed into the block, as there are many npm registries serving the same copies. For a same type of objects, they might share the same scheme of composing links. So, an object may have a link that is a CID which refers to another object who has the code to compose a link.
+
+## Mirroring WWW
+
+Melotte doesn't naturally support indexing WWW pages, unlike YaCy, but users are free to use a utility provided by Melotte to copy the pages onto the network. When the user notices something great on WWW, he could bookmark it in Melotte browser, and the pages are automatically indexed. An mirrorred object from WWW may have a field pointing to the soruce urls, for further synchronization.
+
 
 ## Time guarantee
 
@@ -622,6 +660,8 @@ How shall we rank and sort the content ? For different purposes, the method shou
 ## Anonymity
 
 Anonymity is an unavoidable topic towards a censorship-resistant network. However, apparently IPFS team aren't treating anonymity transport as a priority. Tor is quickest to deploy for the time being, as openbazar has written [go-onion-transport](https://github.com/OpenBazaar/go-onion-transport). You can't use tor in some censored countries, where melotte is needed. Alternative decentralized solutions have been proposed, such as I2P. Since I2P is written in java, we'd use Kovri, developed by Monero. It is proven vulnerable to sybil attacks for decentralized anonymity networks, which can be probably solved by WoT in the future.
+
+Decentralized anonynimity network without WoT is proven vulnerable. We still need our own anonymity protocol for Melotte.
 
 ## Philosophy of this project
 
